@@ -1,0 +1,6 @@
+steps:
+  - run:
+      name: Check for CLOUDSMITH_API_KEY environment variable
+      command: |
+        : "${CLOUDSMITH_API_KEY?CLOUDSMITH_API_KEY must be set in the build environment}"
+        echo "Checking for the Cloudsmith API key"

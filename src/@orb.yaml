@@ -1,0 +1,3 @@
+version: 2.1
+
+description: Install the Cloudsmith CLI and publish packages to Cloudsmith.

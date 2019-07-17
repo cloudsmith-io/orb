@@ -1,0 +1,8 @@
+description: |
+  Uses the basic circleci/python image, which has the prerequisites for installing Cloudsmith's CLI.
+parameters:
+  tag:
+    type: string
+    default: "3.7.4"
+docker:
+  - image: circleci/python:<<parameters.tag>>

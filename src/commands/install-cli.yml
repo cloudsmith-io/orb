@@ -1,0 +1,19 @@
+steps:
+  - run:
+      name: Install Cloudsmith CLI
+      command: |
+        if [[ $(command -v cloudsmith) == "" ]]; then
+          export PIP=$(which pip pip3 | head -1)
+          if [[ -n $PIP ]]; then
+            if which sudo > /dev/null; then
+              sudo $PIP install cloudsmith-cli --upgrade
+            else
+              $PIP install cloudsmith-cli --upgrade --user
+            fi
+          else
+            echo "Unable to install Cloudsmith CLI. Please install pip."
+            exit 1
+          fi
+        else
+          echo "Cloudsmith CLI is already installed."
+        fi

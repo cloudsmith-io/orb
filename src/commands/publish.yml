@@ -1,0 +1,58 @@
+parameters:
+  cloudsmith-repository:
+    type: string
+    description: The Cloudsmith repository to which packages will be published.
+  package-format:
+    type: string
+    description: Format of the package being published.
+  package-path:
+    type: string
+    description: Path to the package to be published (accepts shell globs).
+  package-distribution:
+    type: string
+    default: ""
+    description: distro/release for which the package is built (required only for deb, rpm and alpine).
+  package-pom-file:
+    type: string
+    default: ""
+    description: Path to the POM file associated with a maven release (required only for maven).
+  allow-republish:
+    type: boolean
+    default: false
+    description: Allow publishing a package that overwrites an existing version on Cloudsmith.
+steps:
+  - run:
+      name: Publish Package
+      command: |
+        cloudsmith_repository="<<parameters.cloudsmith-repository>>"
+        package_format="<<parameters.package-format>>"
+        package_distribution="<<parameters.package-distribution>>"
+        package_pom_file="<<parameters.package-pom-file>>"
+
+        # Use `ls` to resolve any shell globs in parameters.package-path
+        package_path="$(ls <<parameters.package-path>>)"
+
+        # Handle optional arguments
+        additional_args=
+        <<# parameters.allow-republish >>
+          additional_args+="--republish"
+        <</ parameters.allow-republish >>
+
+        # Handle per-format required arguments
+        if [[ "$package_format" == "alpine" || "$package_format" == "deb" || "$package_format" == "rpm" ]]; then
+          if [[ "$package_distribution" == "" ]]; then
+            echo "\"package-distribution\" parameter is required when \"package-format\" is alpine, deb, or rpm"
+            exit 1
+          fi
+          cloudsmith_repository+="/$package_distribution"
+        fi
+        if [[ "$package_format" == "maven" ]]; then
+          if [[ "$package_pom_file" == "" ]]; then
+            echo "\"package-pom-file\" parameter is required when \"package-format\" is maven"
+            exit 1
+          fi
+          additional_args+=" --pom-file $package_pom_file"
+        fi
+
+        # Publish package using the Cloudsmith CLI
+        cloudsmith push $package_format $additional_args $cloudsmith_repository $package_path
