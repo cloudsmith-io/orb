@@ -1,10 +1,37 @@
 version: 2.1
 
 orbs:
+  cli: circleci/circleci-cli@0.1.5
   orb-tools: circleci/orb-tools@8.27.3
 
+jobs:
+  publish-orb:
+    description: Publishes an orb to CircleCI
+    executor:
+      cli/default
+    steps:
+      - attach_workspace:
+          at: workspace
+      - run:
+          name: >
+            Publish orb to CircleCI
+          command: |
+            if [[ -n $CIRCLE_TAG ]]; then
+              ORB_REF=$CIRCLE_TAG
+            else
+              ORB_REF="dev:$CIRCLE_BRANCH"
+            fi
+            circleci orb publish workspace/orb.yml cloudsmith/cloudsmith@$ORB_REF
+
 workflows:
-  verify:
+  verify-and-publish:
     jobs:
       - orb-tools/lint
       - orb-tools/pack
+      - publish-orb:
+          filters:
+            tags:
+              only: /.*/
+          requires:
+            - orb-tools/lint
+            - orb-tools/pack
