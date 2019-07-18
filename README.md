@@ -24,10 +24,16 @@ Once generated, we can use the CLI to validate that the orb is correctly structu
 $ circleci orb validate orb.yml
 ```
 
-### Publishing the orb to dev
+## Release Management
 
-CircleCI allows publishing an orb in development mode where it can be used and tested prior to promoting to general release (where it shows up in site-wide documentation). To do so use the `orb publish` command:
+Releasing the orb happens automatically from CI. The orb is linted (`yamllint`) and validated (`circleci orb validate`) as part of the CI process.
 
-```
-$ circleci orb publish orb.yml cloudsmith/cloudsmith@dev:0.1.0
-```
+### Dev/Alpha releases
+
+To make an development (or alpha) release, simply push your changes to a branch on Github. CircleCI will automatically build the orb and push a development release to the version `cloudsmith/cloudsmith@dev:$BRANCH_NAME`.
+
+### Production releases
+
+Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the Github UI) with an appropriate version number (must be semver compatible).
+
+For example, if you create a tag named `2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
