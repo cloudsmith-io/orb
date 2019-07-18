@@ -26,8 +26,14 @@ jobs:
 workflows:
   verify-and-publish:
     jobs:
-      - orb-tools/lint
-      - orb-tools/pack
+      - orb-tools/lint:
+          filters:
+            tags:
+              only: /.*/
+      - orb-tools/pack:
+          filters:
+            tags:
+              only: /.*/
       - publish-orb:
           filters:
             tags:
