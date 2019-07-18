@@ -1,3 +1,7 @@
+description: >
+  This command checks and ensures that a Cloudsmith API key has been configured
+  correctly in the CI environment such that the Cloudsmith CLI will be able to
+  read and use it to authenticate with Cloudsmith for all tasks.
 steps:
   - run:
       name: Check for CLOUDSMITH_API_KEY environment variable

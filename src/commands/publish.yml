@@ -1,3 +1,9 @@
+description: >
+  This command uses the Cloudsmith CLI to publish packages to Cloudsmith.
+  Packages are uploaded and then verified with the CLI. If the upload (or
+  subsequent server-side processing) fails then this command will also exit
+  with a failing status. Most common configuration parameters are exposed via
+  the orb to allow seamless integration with your existing CircleCI workflows.
 parameters:
   cloudsmith-repository:
     type: string
