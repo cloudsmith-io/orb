@@ -3,7 +3,7 @@ usage:
   version: 2.1
 
   orbs:
-    cloudsmith: cloudsmith/cloudsmith@1.0.0
+    cloudsmith: cloudsmith/cloudsmith@1.0.3
 
   workflows:
     cloudsmith_publish:
@@ -24,4 +24,4 @@ usage:
         - cloudsmith/publish:
             cloudsmith-repository: cloudsmith/examples
             package-path: dist/package-*.whl
-            package-type: python
+            package-format: python
