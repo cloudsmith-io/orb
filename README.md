@@ -16,7 +16,7 @@ We store the orb in git as individual YAML files. Before we can use the orb or p
 $ circleci config pack src/ > orb.yml
 ```
 
-### Validating the orb
+### Validating the orb.circleci/config.yml 
 
 Once generated, we can use the CLI to validate that the orb is correctly structured and meets basic standards:
 
@@ -24,7 +24,7 @@ Once generated, we can use the CLI to validate that the orb is correctly structu
 $ circleci orb validate orb.yml
 ```
 
-## Release Management
+## Release Management .circleci/config.yml
 
 Releasing the orb happens automatically from CI. The orb is linted (`yamllint`) and validated (`circleci orb validate`) as part of the CI process.
 
