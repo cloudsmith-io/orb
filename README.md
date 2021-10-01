@@ -34,6 +34,6 @@ To make an development (or alpha) release, simply push your changes to a branch 
 
 ### Production releases
 
-Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the Github UI) with an appropriate version number (must be semver compatible).
+Once happy with your changes, merge as normal via a PR and then tag a new release (either via CI or the Github UI) with an appropriate version number (must be semver compatible).
 
 For example, if you create a tag named `2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
