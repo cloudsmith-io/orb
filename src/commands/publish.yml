@@ -26,6 +26,22 @@ parameters:
     type: boolean
     default: false
     description: Allow publishing a package that overwrites an existing version on Cloudsmith.
+  package-description:
+    type: string
+    default: ""
+    description: Optional description for the package being published (applied only to raw).
+  package-name:
+    type: string
+    default: ""
+    description: Name of the package being published (applied only to raw).
+  package-summary:
+    type: string
+    default: ""
+    description: Summary for the package being published (applied only to raw).
+  package-version:
+    type: string
+    default: ""
+    description: Version of the package being published (applied only to raw).
 steps:
   - run:
       name: Publish Package
@@ -34,6 +50,10 @@ steps:
         package_format="<<parameters.package-format>>"
         package_distribution="<<parameters.package-distribution>>"
         package_pom_file="<<parameters.package-pom-file>>"
+        package_description="<<parameters.package-description>>"
+        package_name="<<parameters.package-name>>"
+        package_summary="<<parameters.package-summary>>"
+        package_version="<<parameters.package-version>>"
 
         # Use `ls` to resolve any shell globs in parameters.package-path
         package_path="$(ls <<parameters.package-path>>)"
@@ -58,6 +78,20 @@ steps:
             exit 1
           fi
           additional_args+=" --pom-file $package_pom_file"
+        fi
+        if [[ "$package_format" == "raw" ]]; then
+          if [[ ! -z "$package_description" ]]; then
+            additional_args+=" --description $package_description"
+          fi
+          if [[ ! -z "$package_name" ]]; then
+            additional_args+=" --name $package_name"
+          fi
+          if [[ ! -z "$package_summary" ]]; then
+            additional_args+=" --summary $package_summary"
+          fi
+          if [[ ! -z "$package_version" ]]; then
+            additional_args+=" --version $package_version"
+          fi
         fi
 
         # Publish package using the Cloudsmith CLI
