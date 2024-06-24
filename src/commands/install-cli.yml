@@ -1,7 +1,7 @@
 description: >
   This command uses pip to install the Cloudsmith CLI from PyPI into the CI
   environment, or falls back to downloading the latest zipapp if pip is not
-  available. The Cloudsmith CLI is used for publishing packages to Cloudsmith 
+  available. The Cloudsmith CLI is used for publishing packages to Cloudsmith
   from your build jobs.
 steps:
   - run:
