@@ -1,0 +1,39 @@
+description: >
+  Authenticate with Cloudsmith using OpenID Connect (OIDC) to generate a
+  short-lived OIDC token for use in subsequent Cloudsmith requests. This
+  sets the CLOUDSMITH_API_KEY environment variable to the retrieved token
+  for use with the Cloudsmith CLI.
+parameters:
+  organization:
+    type: string
+    description: The name of the Cloudsmith organization to use for authentication
+  service-account:
+    type: string
+    description: The name of the Cloudsmith service account to use for authentication
+steps:
+  - run:
+      name: Authenticate to Cloudsmith with OIDC
+      command: |
+        organization="<<parameters.organization>>"
+        service_account="<<parameters.service-account>>"
+        oidc_endpoint="https://api.cloudsmith.io/openid/$organization/"
+
+        payload=$(jq -n \
+            --arg oidc_token "$CIRCLE_OIDC_TOKEN_V2" \
+            --arg service_slug "$service_account" \
+            '{
+                oidc_token: $oidc_token,
+                service_slug: $service_slug
+            }'
+        )
+
+        response=$(curl -X POST \
+            -H "Content-Type: application/json" \
+            -d "$payload" \
+            --silent \
+            "$oidc_endpoint"
+        )
+
+        token=$(echo "$response" | jq -r '.token')
+        echo "export CLOUDSMITH_API_KEY=$token" >> "$BASH_ENV"
+        source "$BASH_ENV"

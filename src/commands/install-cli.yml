@@ -1,8 +1,8 @@
 description: >
   This command uses pip to install the Cloudsmith CLI from PyPI into the CI
-  environment. The Cloudsmith CLI is used for publishing packages to Cloudsmith
-  from your build jobs. This command requires that pip is installed and
-  available within the build environment or it will fail to run.
+  environment, or falls back to downloading the latest zipapp if pip is not
+  available. The Cloudsmith CLI is used for publishing packages to Cloudsmith
+  from your build jobs.
 steps:
   - run:
       name: Install Cloudsmith CLI
@@ -16,8 +16,9 @@ steps:
               $PIP install cloudsmith-cli --upgrade --user
             fi
           else
-            echo "Unable to install Cloudsmith CLI. Please install pip."
-            exit 1
+            latest_pyz=$(curl -s https://api.github.com/repos/cloudsmith-io/cloudsmith-cli/releases/latest | jq -r '.assets[] | select(.name | endswith(".pyz")) | .browser_download_url')
+            curl -L $latest_pyz -o /home/circleci/bin/cloudsmith
+            chmod +x /home/circleci/bin/cloudsmith
           fi
         else
           echo "Cloudsmith CLI is already installed."
