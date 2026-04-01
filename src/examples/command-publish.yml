@@ -1,7 +1,4 @@
-description: >-
-  Legacy workflow — authenticate with a static API key and use the deprecated
-  publish command. For new projects prefer the OIDC-based approach shown in
-  the cli-with-oidc example.
+description: Customize your Cloudsmith workflow using the commands from this orb
 usage:
   version: 2.1
 
@@ -23,10 +20,8 @@ usage:
         - cloudsmith/install-cli
         - run:
             name: Build Python package
-            command: |
-              pip install build
-              python -m build --wheel
+            command: python setup.py bdist_wheel
         - cloudsmith/publish:
             cloudsmith-repository: cloudsmith/examples
-            package-path: dist/*.whl
+            package-path: dist/package-*.whl
             package-format: python

@@ -18,27 +18,19 @@ parameters:
   package-distribution:
     type: string
     default: ""
-    description: >
-      distro/release for which the package is built (required only for deb,
-      rpm and alpine).
+    description: distro/release for which the package is built (required only for deb, rpm and alpine).
   package-pom-file:
     type: string
     default: ""
-    description: >
-      Path to the POM file associated with a maven release (required only
-      for maven).
+    description: Path to the POM file associated with a maven release (required only for maven).
   allow-republish:
     type: boolean
     default: false
-    description: >
-      Allow publishing a package that overwrites an existing version on
-      Cloudsmith.
+    description: Allow publishing a package that overwrites an existing version on Cloudsmith.
   package-description:
     type: string
     default: ""
-    description: >
-      Optional description for the package being published (applied only to
-      raw).
+    description: Optional description for the package being published (applied only to raw).
   package-name:
     type: string
     default: ""
@@ -64,53 +56,44 @@ steps:
         package_summary="<<parameters.package-summary>>"
         package_version="<<parameters.package-version>>"
 
-        # Resolve shell globs in package-path
-        # shellcheck disable=SC2086
-        package_path=$(echo <<parameters.package-path>>)
-        if [[ -z "$package_path" ]]; then
-          echo "No files matched the package-path pattern."
-          exit 1
-        fi
+        # Use `ls` to resolve any shell globs in parameters.package-path
+        package_path="$(ls <<parameters.package-path>>)"
 
         # Handle optional arguments
-        additional_args=()
+        additional_args=
         <<# parameters.allow-republish >>
-          additional_args+=("--republish")
+          additional_args+="--republish"
         <</ parameters.allow-republish >>
 
         # Handle per-format required arguments
-        if [[ "$package_format" == "alpine" || "$package_format" == "deb" ||
-              "$package_format" == "rpm" ]]; then
-          if [[ -z "$package_distribution" ]]; then
-            echo "\"package-distribution\" parameter is required when" \
-              "\"package-format\" is alpine, deb, or rpm"
+        if [[ "$package_format" == "alpine" || "$package_format" == "deb" || "$package_format" == "rpm" ]]; then
+          if [[ "$package_distribution" == "" ]]; then
+            echo "\"package-distribution\" parameter is required when \"package-format\" is alpine, deb, or rpm"
             exit 1
           fi
           cloudsmith_repository+="/$package_distribution"
         fi
         if [[ "$package_format" == "maven" ]]; then
-          if [[ -z "$package_pom_file" ]]; then
-            echo "\"package-pom-file\" parameter is required when" \
-              "\"package-format\" is maven"
+          if [[ "$package_pom_file" == "" ]]; then
+            echo "\"package-pom-file\" parameter is required when \"package-format\" is maven"
             exit 1
           fi
-          additional_args+=("--pom-file" "$package_pom_file")
+          additional_args+=" --pom-file $package_pom_file"
         fi
         if [[ "$package_format" == "raw" ]]; then
-          if [[ -n "$package_description" ]]; then
-            additional_args+=("--description" "$package_description")
+          if [[ ! -z "$package_description" ]]; then
+            additional_args+=" --description $package_description"
           fi
-          if [[ -n "$package_name" ]]; then
-            additional_args+=("--name" "$package_name")
+          if [[ ! -z "$package_name" ]]; then
+            additional_args+=" --name $package_name"
           fi
-          if [[ -n "$package_summary" ]]; then
-            additional_args+=("--summary" "$package_summary")
+          if [[ ! -z "$package_summary" ]]; then
+            additional_args+=" --summary $package_summary"
           fi
-          if [[ -n "$package_version" ]]; then
-            additional_args+=("--version" "$package_version")
+          if [[ ! -z "$package_version" ]]; then
+            additional_args+=" --version $package_version"
           fi
         fi
 
         # Publish package using the Cloudsmith CLI
-        cloudsmith push "$package_format" "${additional_args[@]}" \
-          "$cloudsmith_repository" $package_path
+        cloudsmith push $package_format $additional_args $cloudsmith_repository $package_path
