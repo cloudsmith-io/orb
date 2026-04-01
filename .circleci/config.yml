@@ -1,43 +1,61 @@
 version: 2.1
 
 orbs:
-  cli: circleci/circleci-cli@0.1.5
-  orb-tools: circleci/orb-tools@8.27.3
+  orb-tools: circleci/orb-tools@12.4.0
 
-jobs:
-  publish-orb:
-    description: Publishes an orb to CircleCI
-    executor:
-      cli/default
-    steps:
-      - attach_workspace:
-          at: workspace
-      - run:
-          name: >
-            Publish orb to CircleCI
-          command: |
-            if [[ -n $CIRCLE_TAG ]]; then
-              ORB_REF=$CIRCLE_TAG
-            else
-              ORB_REF="dev:$CIRCLE_BRANCH"
-            fi
-            circleci orb publish workspace/orb.yml cloudsmith/cloudsmith@$ORB_REF
+# Run jobs on all branches and tags
+filters: &filters
+  tags:
+    only: /.*/
+
+# Run jobs only on semver release tags (e.g. v2.0.0)
+release-filters: &release-filters
+  branches:
+    ignore: /.*/
+  tags:
+    only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
 
 workflows:
-  verify-and-publish:
+  lint-pack-publish:
     jobs:
+      # Lint all YAML files in src/
       - orb-tools/lint:
-          filters:
-            tags:
-              only: /.*/
+          filters: *filters
+      # Pack src/ into a single orb.yml and validate it
       - orb-tools/pack:
-          filters:
-            tags:
-              only: /.*/
-      - publish-orb:
-          filters:
-            tags:
-              only: /.*/
+          filters: *filters
+      # Review orb source against CircleCI best practices
+      - orb-tools/review:
+          filters: *filters
+          orb_name: cloudsmith
+          # RC009: long inline commands (we use inline bash intentionally)
+          # RC010: snake_case naming (our params use kebab-case by convention)
+          exclude: RC009,RC010
+      # Publish a dev version on every push (except release tags and PRs)
+      - orb-tools/publish:
+          name: publish-dev
+          orb_name: cloudsmith/cloudsmith
+          vcs_type: << pipeline.project.type >>
+          pub_type: dev
+          context: orb-publishing
           requires:
             - orb-tools/lint
             - orb-tools/pack
+            - orb-tools/review
+          filters:
+            branches:
+              ignore: /^pull\/[0-9]+/
+            tags:
+              ignore: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+      # Publish a production version when a semver tag is pushed
+      - orb-tools/publish:
+          name: publish-production
+          orb_name: cloudsmith/cloudsmith
+          vcs_type: << pipeline.project.type >>
+          pub_type: production
+          context: orb-publishing
+          requires:
+            - orb-tools/lint
+            - orb-tools/pack
+            - orb-tools/review
+          filters: *release-filters

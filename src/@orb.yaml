@@ -1,7 +1,8 @@
 version: 2.1
 
 description: |
-  Install the Cloudsmith CLI and publish packages to Cloudsmith.
+  Install the Cloudsmith CLI and publish packages to Cloudsmith repositories.
+  Supports OIDC and API key authentication with configurable CLI options.
 
 display:
   home_url: https://cloudsmith.io/

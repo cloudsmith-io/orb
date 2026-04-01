@@ -1,9 +1,10 @@
 description: >
-  This command uses the Cloudsmith CLI to publish packages to Cloudsmith.
-  Packages are uploaded and then verified with the CLI. If the upload (or
-  subsequent server-side processing) fails then this command will also exit
-  with a failing status. Most common configuration parameters are exposed via
-  the orb to allow seamless integration with your existing CircleCI workflows.
+  DEPRECATED: This command wraps individual cloudsmith push calls and will be
+  removed in a future major version. The recommended approach is to call
+  install-cli and authenticate-with-oidc (or ensure-api-key), then invoke the
+  Cloudsmith CLI directly in your run steps — e.g. "cloudsmith push python
+  my-org/my-repo dist/package-*.whl". All existing parameters continue to work
+  as before.
 parameters:
   cloudsmith-repository:
     type: string
@@ -17,19 +18,27 @@ parameters:
   package-distribution:
     type: string
     default: ""
-    description: distro/release for which the package is built (required only for deb, rpm and alpine).
+    description: >
+      distro/release for which the package is built (required only for deb,
+      rpm and alpine).
   package-pom-file:
     type: string
     default: ""
-    description: Path to the POM file associated with a maven release (required only for maven).
+    description: >
+      Path to the POM file associated with a maven release (required only
+      for maven).
   allow-republish:
     type: boolean
     default: false
-    description: Allow publishing a package that overwrites an existing version on Cloudsmith.
+    description: >
+      Allow publishing a package that overwrites an existing version on
+      Cloudsmith.
   package-description:
     type: string
     default: ""
-    description: Optional description for the package being published (applied only to raw).
+    description: >
+      Optional description for the package being published (applied only to
+      raw).
   package-name:
     type: string
     default: ""
@@ -55,44 +64,53 @@ steps:
         package_summary="<<parameters.package-summary>>"
         package_version="<<parameters.package-version>>"
 
-        # Use `ls` to resolve any shell globs in parameters.package-path
-        package_path="$(ls <<parameters.package-path>>)"
+        # Resolve shell globs in package-path
+        # shellcheck disable=SC2086
+        package_path=$(echo <<parameters.package-path>>)
+        if [[ -z "$package_path" ]]; then
+          echo "No files matched the package-path pattern."
+          exit 1
+        fi
 
         # Handle optional arguments
-        additional_args=
+        additional_args=()
         <<# parameters.allow-republish >>
-          additional_args+="--republish"
+          additional_args+=("--republish")
         <</ parameters.allow-republish >>
 
         # Handle per-format required arguments
-        if [[ "$package_format" == "alpine" || "$package_format" == "deb" || "$package_format" == "rpm" ]]; then
-          if [[ "$package_distribution" == "" ]]; then
-            echo "\"package-distribution\" parameter is required when \"package-format\" is alpine, deb, or rpm"
+        if [[ "$package_format" == "alpine" || "$package_format" == "deb" ||
+              "$package_format" == "rpm" ]]; then
+          if [[ -z "$package_distribution" ]]; then
+            echo "\"package-distribution\" parameter is required when" \
+              "\"package-format\" is alpine, deb, or rpm"
             exit 1
           fi
           cloudsmith_repository+="/$package_distribution"
         fi
         if [[ "$package_format" == "maven" ]]; then
-          if [[ "$package_pom_file" == "" ]]; then
-            echo "\"package-pom-file\" parameter is required when \"package-format\" is maven"
+          if [[ -z "$package_pom_file" ]]; then
+            echo "\"package-pom-file\" parameter is required when" \
+              "\"package-format\" is maven"
             exit 1
           fi
-          additional_args+=" --pom-file $package_pom_file"
+          additional_args+=("--pom-file" "$package_pom_file")
         fi
         if [[ "$package_format" == "raw" ]]; then
-          if [[ ! -z "$package_description" ]]; then
-            additional_args+=" --description $package_description"
+          if [[ -n "$package_description" ]]; then
+            additional_args+=("--description" "$package_description")
           fi
-          if [[ ! -z "$package_name" ]]; then
-            additional_args+=" --name $package_name"
+          if [[ -n "$package_name" ]]; then
+            additional_args+=("--name" "$package_name")
           fi
-          if [[ ! -z "$package_summary" ]]; then
-            additional_args+=" --summary $package_summary"
+          if [[ -n "$package_summary" ]]; then
+            additional_args+=("--summary" "$package_summary")
           fi
-          if [[ ! -z "$package_version" ]]; then
-            additional_args+=" --version $package_version"
+          if [[ -n "$package_version" ]]; then
+            additional_args+=("--version" "$package_version")
           fi
         fi
 
         # Publish package using the Cloudsmith CLI
-        cloudsmith push $package_format $additional_args $cloudsmith_repository $package_path
+        cloudsmith push "$package_format" "${additional_args[@]}" \
+          "$cloudsmith_repository" $package_path

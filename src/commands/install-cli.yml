@@ -1,25 +1,124 @@
 description: >
-  This command uses pip to install the Cloudsmith CLI from PyPI into the CI
-  environment, or falls back to downloading the latest zipapp if pip is not
-  available. The Cloudsmith CLI is used for publishing packages to Cloudsmith
-  from your build jobs.
+  Installs the Cloudsmith CLI by downloading the zipapp from Cloudsmith.
+  Set pip-install to true to install via pip instead. Pass cli-version to
+  pin a specific release. Optional API configuration parameters are written
+  to the CLI config file (~/.cloudsmith/config.ini) for use in subsequent steps.
+parameters:
+  cli-version:
+    type: string
+    default: ""
+    description: >
+      Pin a specific Cloudsmith CLI version (e.g. "1.2.0"). Leave empty to
+      install the latest available release.
+  pip-install:
+    type: boolean
+    default: false
+    description: >
+      Install via pip instead of the default zipapp. When true pip must be
+      available — the step fails if pip is not found.
+  install-path:
+    type: string
+    default: /usr/local/bin
+    description: >
+      Directory where the Cloudsmith CLI zipapp binary is installed. Ignored
+      when installing via pip.
+  api-host:
+    type: string
+    default: ""
+    description: >
+      Override the Cloudsmith API host (api_host in config.ini). Leave empty
+      to use the default (api.cloudsmith.io).
+  api-proxy:
+    type: string
+    default: ""
+    description: >
+      HTTP/HTTPS proxy URL for Cloudsmith API calls (api_proxy in config.ini).
+      Leave empty for no proxy.
+  api-ssl-verify:
+    type: boolean
+    default: true
+    description: >
+      Enable or disable SSL certificate verification for Cloudsmith API calls
+      (api_ssl_verify in config.ini).
+  api-user-agent:
+    type: string
+    default: ""
+    description: >
+      Custom user-agent string sent with Cloudsmith API requests (api_user_agent
+      in config.ini). Leave empty to use the default.
 steps:
   - run:
       name: Install Cloudsmith CLI
       command: |
-        if [[ $(command -v cloudsmith) == "" ]]; then
-          export PIP=$(which pip pip3 | head -1)
-          if [[ -n $PIP ]]; then
-            if which sudo > /dev/null; then
-              sudo $PIP install cloudsmith-cli --upgrade
+        cli_version="<<parameters.cli-version>>"
+        force_pip="<<parameters.pip-install>>"
+        install_path="<<parameters.install-path>>"
+        api_host="<<parameters.api-host>>"
+        api_proxy="<<parameters.api-proxy>>"
+        api_ssl_verify="<<parameters.api-ssl-verify>>"
+        api_user_agent="<<parameters.api-user-agent>>"
+
+        # Write CLI configuration to config.ini if any api-* parameters are set
+        if [[ -n "$api_host" || -n "$api_proxy" || "$api_ssl_verify" == "false" || -n "$api_user_agent" ]]; then
+          config_dir="${HOME}/.cloudsmith"
+          config_file="${config_dir}/config.ini"
+          mkdir -p "$config_dir"
+          {
+            echo "[default]"
+            echo "api_host=${api_host}"
+            echo "api_proxy=${api_proxy}"
+            echo "api_ssl_verify=${api_ssl_verify}"
+            echo "api_user_agent=${api_user_agent}"
+          } > "$config_file"
+          echo "Cloudsmith CLI config written to $config_file"
+        fi
+
+        # Install the Cloudsmith CLI
+        if command -v cloudsmith > /dev/null && [[ "$force_pip" != "true" ]]; then
+          if [[ -n "$cli_version" ]]; then
+            echo "Warning: Cloudsmith CLI is already installed." \
+              "cli-version='$cli_version' was ignored. Set pip-install: true" \
+              "to enforce the version."
+          else
+            echo "Cloudsmith CLI is already installed."
+          fi
+
+        elif [[ "$force_pip" == "true" ]]; then
+          # Pip installation (only when explicitly requested)
+          PIP=$(command -v pip 2>/dev/null || command -v pip3 2>/dev/null)
+          if [[ -z "$PIP" ]]; then
+            echo "pip-install is true but pip was not found. Ensure pip is" \
+              "available in this executor."
+            exit 1
+          fi
+
+          if [[ -n "$cli_version" ]]; then
+            if command -v sudo > /dev/null; then
+              sudo "$PIP" install "cloudsmith-cli==$cli_version"
             else
-              $PIP install cloudsmith-cli --upgrade --user
+              "$PIP" install "cloudsmith-cli==$cli_version" --user
             fi
           else
-            latest_pyz=$(curl -s https://api.github.com/repos/cloudsmith-io/cloudsmith-cli/releases/latest | jq -r '.assets[] | select(.name | endswith(".pyz")) | .browser_download_url')
-            curl -L $latest_pyz -o /home/circleci/bin/cloudsmith
-            chmod +x /home/circleci/bin/cloudsmith
+            if command -v sudo > /dev/null; then
+              sudo "$PIP" install cloudsmith-cli --upgrade
+            else
+              "$PIP" install cloudsmith-cli --upgrade --user
+            fi
           fi
+
         else
-          echo "Cloudsmith CLI is already installed."
+          # Default: download zipapp from Cloudsmith
+          if [[ -n "$cli_version" ]]; then
+            pyz_url="https://dl.cloudsmith.io/public/cloudsmith/cli-zipapp/raw/names/cloudsmith-cli/versions/${cli_version}/cloudsmith.pyz"
+          else
+            pyz_url="https://dl.cloudsmith.io/public/cloudsmith/cli-zipapp/raw/names/cloudsmith-cli/versions/latest/cloudsmith.pyz"
+          fi
+
+          mkdir -p "$install_path"
+          if ! curl -1sLf "$pyz_url" -o "${install_path}/cloudsmith"; then
+            echo "Failed to download Cloudsmith CLI zipapp from:"
+            echo "  $pyz_url"
+            exit 1
+          fi
+          chmod +x "${install_path}/cloudsmith"
         fi
