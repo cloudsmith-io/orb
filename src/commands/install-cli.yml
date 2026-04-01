@@ -1,3 +1,4 @@
+---
 description: >
   Installs the Cloudsmith CLI by downloading the zipapp from Cloudsmith.
   Set pip-install to true to install via pip instead. Pass cli-version to

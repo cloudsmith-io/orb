@@ -1,3 +1,4 @@
+---
 description: >
   DEPRECATED: This command wraps individual cloudsmith push calls and will be
   removed in a future major version. The recommended approach is to call

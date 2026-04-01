@@ -1,3 +1,4 @@
+---
 description: >
   Recommended workflow — authenticate with Cloudsmith via OIDC and install the
   CLI, then invoke the CLI directly in your run steps. This pattern gives you

@@ -1,3 +1,4 @@
+---
 description: |
   Uses the cimg/python convenience image, which has the prerequisites for installing Cloudsmith's CLI.
 parameters:

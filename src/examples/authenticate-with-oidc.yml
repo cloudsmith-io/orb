@@ -1,3 +1,4 @@
+---
 description: >
   Authenticate with Cloudsmith using OpenID Connect (OIDC) to obtain a
   short-lived API token. The token is exported as CLOUDSMITH_API_KEY and can
