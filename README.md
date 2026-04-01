@@ -129,4 +129,4 @@ Dev releases are published automatically on every push that is not a release tag
 
 ### Production releases
 
-Once your PR is approved, a Cloudsmith maintainer will merge it and tag a new release using a `v`-prefixed semver tag. For example, tagging `v2.0.0` publishes the orb as `cloudsmith/cloudsmith@2.0.0`.
+Once your PR is approved, a Cloudsmith maintainer will merge it and tag a new release.
