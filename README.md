@@ -123,10 +123,10 @@ $ circleci orb validate orb.yml
 
 Releasing the orb happens automatically from CI using the [`circleci/orb-tools`](https://circleci.com/developer/orbs/orb/circleci/orb-tools) orb. The orb source is linted, reviewed for best practices, packed, and validated as part of the pipeline.
 
-### Dev releases
-
-Dev releases are published automatically on every push that is not a release tag. They are mutable and expire after 90 days.
+### Dev/Alpha releases
+To make an development (or alpha) release, simply push your changes to a branch on Github. CircleCI will automatically build the orb and push a development release to the version `cloudsmith/cloudsmith@dev:$BRANCH_NAME`.
 
 ### Production releases
+Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the Github UI) with an appropriate version number (must be semver compatible).
 
-Once your PR is approved, a Cloudsmith maintainer will merge it and tag a new release.
+For example, if you create a tag named `2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
