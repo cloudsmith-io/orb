@@ -26,7 +26,7 @@ Installs the Cloudsmith CLI by downloading the zipapp from Cloudsmith. Set `pip-
 |---|---|---|---|
 | `cli-version` | string | `""` | Pin a specific CLI version (e.g. `"1.2.0"`). Empty installs the latest |
 | `pip-install` | boolean | `false` | Install via pip instead of the default zipapp |
-| `install-path` | string | `/usr/local/bin` | Directory where the zipapp binary is installed (ignored when using pip) |
+| `install-path` | string | `$HOME/bin` | Directory where the zipapp binary is installed and added to `PATH` (ignored when using pip) |
 | `api-host` | string | `""` | Override `api_host` in config.ini (default: `api.cloudsmith.io`) |
 | `api-proxy` | string | `""` | HTTP/HTTPS proxy (`api_proxy` in config.ini) |
 | `api-ssl-verify` | boolean | `true` | Enable/disable SSL verification (`api_ssl_verify` in config.ini) |
@@ -124,9 +124,9 @@ $ circleci orb validate orb.yml
 Releasing the orb happens automatically from CI using the [`circleci/orb-tools`](https://circleci.com/developer/orbs/orb/circleci/orb-tools) orb. The orb source is linted, reviewed for best practices, packed, and validated as part of the pipeline.
 
 ### Dev/Alpha releases
-To make an development (or alpha) release, simply push your changes to a branch on Github. CircleCI will automatically build the orb and push a development release to the version `cloudsmith/cloudsmith@dev:$BRANCH_NAME`.
+To make a development (or alpha) release, simply push your changes to a branch on GitHub. CircleCI will automatically build the orb and push a development release to the version `cloudsmith/cloudsmith@dev:$BRANCH_NAME`.
 
 ### Production releases
-Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the Github UI) with an appropriate version number (must be semver compatible).
+Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the GitHub UI) with an appropriate `v`-prefixed semver version.
 
-For example, if you create a tag named `2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
+For example, if you create a tag named `v2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
