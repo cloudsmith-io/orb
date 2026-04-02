@@ -4,7 +4,7 @@ description: |
 parameters:
   tag:
     type: string
-    default: "3.12"
+    default: "3.10"
     description: >-
       Pick a specific cimg/python image version tag:
       https://circleci.com/developer/images/image/cimg/python

@@ -42,7 +42,7 @@ Wraps individual `cloudsmith push` calls. This command will be removed in a futu
 
 ## Executor
 
-The `default` executor uses the `cimg/python` convenience image (default tag `3.12`), which has the prerequisites for installing the Cloudsmith CLI.
+The `default` executor uses the `cimg/python` convenience image (default tag `3.10`), which has the prerequisites for installing the Cloudsmith CLI.
 
 ## Usage
 
