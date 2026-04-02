@@ -35,7 +35,7 @@ workflows:
       # Publish a dev version on every push (except release tags and PRs)
       - orb-tools/publish:
           name: publish-dev
-          orb_name: cloudsmith/cloudsmith
+          orb_name: bartoszblizniak/cloudsmith
           vcs_type: << pipeline.project.type >>
           pub_type: dev
           context: orb-publishing
@@ -51,7 +51,7 @@ workflows:
       # Publish a production version when a semver tag is pushed
       - orb-tools/publish:
           name: publish-production
-          orb_name: cloudsmith/cloudsmith
+          orb_name: bartoszblizniak/cloudsmith
           vcs_type: << pipeline.project.type >>
           pub_type: production
           context: orb-publishing
