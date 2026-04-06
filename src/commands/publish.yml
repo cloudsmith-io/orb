@@ -1,9 +1,11 @@
+---
 description: >
-  This command uses the Cloudsmith CLI to publish packages to Cloudsmith.
-  Packages are uploaded and then verified with the CLI. If the upload (or
-  subsequent server-side processing) fails then this command will also exit
-  with a failing status. Most common configuration parameters are exposed via
-  the orb to allow seamless integration with your existing CircleCI workflows.
+  DEPRECATED: This command wraps individual cloudsmith push calls and will be
+  removed in a future major version. The recommended approach is to call
+  install-cli and authenticate-with-oidc (or ensure-api-key), then invoke the
+  Cloudsmith CLI directly in your run steps — e.g. "cloudsmith push python
+  my-org/my-repo dist/package-*.whl". All existing parameters continue to work
+  as before.
 parameters:
   cloudsmith-repository:
     type: string

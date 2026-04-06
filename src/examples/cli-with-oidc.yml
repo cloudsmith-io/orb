@@ -1,0 +1,32 @@
+---
+description: >
+  Recommended workflow — authenticate with Cloudsmith via OIDC and install the
+  CLI, then invoke the CLI directly in your run steps. This pattern gives you
+  full access to all Cloudsmith CLI commands.
+usage:
+  version: 2.1
+
+  orbs:
+    cloudsmith: cloudsmith/cloudsmith@2.0.0
+
+  workflows:
+    cloudsmith_oidc_publish:
+      jobs:
+        - publish
+
+  jobs:
+    publish:
+      executor:
+        cloudsmith/default
+      steps:
+        - checkout
+        - cloudsmith/authenticate-with-oidc:
+            organization: my-org
+            service-account: my-service-account
+        - cloudsmith/install-cli
+        - run:
+            name: Build and publish Python package
+            command: |
+              pip install build
+              python -m build --wheel
+              cloudsmith push python my-org/my-repo dist/*.whl

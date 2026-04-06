@@ -1,0 +1,25 @@
+---
+description: >
+  Authenticate with Cloudsmith using OpenID Connect (OIDC) to obtain a
+  short-lived API token. The token is exported as CLOUDSMITH_API_KEY and can
+  be used in subsequent steps without installing the Cloudsmith CLI.
+usage:
+  version: 2.1
+
+  orbs:
+    cloudsmith: cloudsmith/cloudsmith@2.0.0
+
+  workflows:
+    cloudsmith_oidc_auth:
+      jobs:
+        - authenticate
+
+  jobs:
+    authenticate:
+      executor:
+        cloudsmith/default
+      steps:
+        - checkout
+        - cloudsmith/authenticate-with-oidc:
+            organization: my-org
+            service-account: my-service-account

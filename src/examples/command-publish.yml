@@ -1,9 +1,10 @@
+---
 description: Customize your Cloudsmith workflow using the commands from this orb
 usage:
   version: 2.1
 
   orbs:
-    cloudsmith: cloudsmith/cloudsmith@1.0.3
+    cloudsmith: cloudsmith/cloudsmith@2.0.0
 
   workflows:
     cloudsmith_publish:
