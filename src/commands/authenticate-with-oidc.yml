@@ -1,39 +1,102 @@
+---
 description: >
   Authenticate with Cloudsmith using OpenID Connect (OIDC) to generate a
-  short-lived OIDC token for use in subsequent Cloudsmith requests. This
+  short-lived API token for use in subsequent Cloudsmith requests. This
   sets the CLOUDSMITH_API_KEY environment variable to the retrieved token
-  for use with the Cloudsmith CLI.
+  for use with the Cloudsmith CLI. Retries the token exchange up to
+  oidc-auth-retry times (default 3) with a 5-second delay between attempts.
+  To use OIDC authentication without installing the CLI, simply call this
+  command on its own and omit install-cli from your workflow steps.
 parameters:
   organization:
     type: string
-    description: The name of the Cloudsmith organization to use for authentication
+    description: >
+      The name of the Cloudsmith organization to use for authentication.
   service-account:
     type: string
-    description: The name of the Cloudsmith service account to use for authentication
+    description: >
+      The name of the Cloudsmith service account to use for authentication.
+  oidc-audience:
+    type: string
+    default: ""
+    description: >
+      Custom audience value sent in the OIDC token exchange request body.
+      Leave empty to omit the field and use Cloudsmith's default audience.
+  oidc-auth-retry:
+    type: integer
+    default: 3
+    description: >
+      Total number of attempts for the OIDC token exchange. Each retry waits
+      5 seconds before the next attempt. The step fails if all attempts are
+      exhausted without a valid token.
 steps:
   - run:
       name: Authenticate to Cloudsmith with OIDC
       command: |
         organization="<<parameters.organization>>"
         service_account="<<parameters.service-account>>"
+        oidc_audience="<<parameters.oidc-audience>>"
+        max_retries=<<parameters.oidc-auth-retry>>
         oidc_endpoint="https://api.cloudsmith.io/openid/$organization/"
 
-        payload=$(jq -n \
+        # Verify required tools are available
+        for cmd in curl jq; do
+          if ! command -v "$cmd" > /dev/null; then
+            echo "$cmd is required but not found. Ensure it is installed."
+            exit 1
+          fi
+        done
+
+        if [[ -z "$CIRCLE_OIDC_TOKEN_V2" ]]; then
+          echo "CIRCLE_OIDC_TOKEN_V2 is not set."
+          echo "Enable OIDC: Project Settings -> Advanced -> Enable OIDC."
+          exit 1
+        fi
+
+        attempt=0
+        while [[ $attempt -lt $max_retries ]]; do
+          attempt=$((attempt + 1))
+          echo "OIDC authentication attempt $attempt of $max_retries"
+
+          payload=$(jq -n \
             --arg oidc_token "$CIRCLE_OIDC_TOKEN_V2" \
             --arg service_slug "$service_account" \
             '{
-                oidc_token: $oidc_token,
-                service_slug: $service_slug
-            }'
-        )
+              oidc_token: $oidc_token,
+              service_slug: $service_slug
+            }')
 
-        response=$(curl -X POST \
+          if [[ -n "$oidc_audience" ]]; then
+            payload=$(echo "$payload" | jq \
+              --arg audience "$oidc_audience" \
+              '. + {audience: $audience}')
+          fi
+
+          response=$(curl -s -X POST \
             -H "Content-Type: application/json" \
             -d "$payload" \
-            --silent \
-            "$oidc_endpoint"
-        )
+            --write-out '\n%{http_code}' \
+            "$oidc_endpoint") || true
 
-        token=$(echo "$response" | jq -r '.token')
-        echo "export CLOUDSMITH_API_KEY=$token" >> "$BASH_ENV"
-        source "$BASH_ENV"
+          http_code=$(echo "$response" | tail -n1)
+          body=$(echo "$response" | sed '$d')
+
+          if [[ "$http_code" -ge 200 && "$http_code" -lt 300 ]]; then
+            token=$(echo "$body" | jq -r '.token // empty')
+
+            if [[ -n "$token" ]]; then
+              echo "export CLOUDSMITH_API_KEY=\"$token\"" >> "$BASH_ENV"
+              echo "Successfully authenticated with Cloudsmith via OIDC."
+              exit 0
+            fi
+          fi
+
+          echo "OIDC token exchange failed (attempt $attempt, HTTP $http_code)."
+
+          if [[ $attempt -lt $max_retries ]]; then
+            echo "Retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+        echo "OIDC authentication failed after $max_retries attempt(s)."
+        exit 1

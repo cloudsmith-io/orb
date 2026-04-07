@@ -1,8 +1,12 @@
+---
 description: |
-  Uses the basic circleci/python image, which has the prerequisites for installing Cloudsmith's CLI.
+  Uses the cimg/python convenience image, which has the prerequisites for installing Cloudsmith's CLI.
 parameters:
   tag:
     type: string
-    default: "3.7.4"
+    default: "3.10"
+    description: >-
+      Pick a specific cimg/python image version tag:
+      https://circleci.com/developer/images/image/cimg/python
 docker:
-  - image: circleci/python:<<parameters.tag>>
+  - image: cimg/python:<<parameters.tag>>
