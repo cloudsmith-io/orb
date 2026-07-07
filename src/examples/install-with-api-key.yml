@@ -1,0 +1,26 @@
+---
+description: >
+  Install the Cloudsmith CLI and authenticate with an API key provided via
+  the CLOUDSMITH_API_KEY environment variable (for example from a context).
+usage:
+  version: 2.1
+
+  orbs:
+    cloudsmith: cloudsmith/cloudsmith@3.0.0
+
+  workflows:
+    cloudsmith_publish:
+      jobs:
+        - publish:
+            context: my-context
+
+  jobs:
+    publish:
+      executor: cloudsmith/default
+      steps:
+        - checkout
+        - cloudsmith/ensure-api-key
+        - cloudsmith/install-cli
+        - run:
+            name: Publish package
+            command: cloudsmith push raw my-org/my-repo dist/app.tar.gz

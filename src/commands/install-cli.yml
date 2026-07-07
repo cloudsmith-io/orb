@@ -1,28 +1,24 @@
 ---
 description: >
-  Installs the Cloudsmith CLI by downloading the zipapp from Cloudsmith.
-  Set pip-install to true to install via pip instead. Pass cli-version to
-  pin a specific release. Optional API configuration parameters are written
-  to the CLI config file (~/.cloudsmith/config.ini) for use in subsequent steps.
+  Installs the standalone Cloudsmith CLI binary on Linux or macOS executors.
+  The installer is bundled with the published orb and verifies the downloaded
+  archive against its SHA-256 checksum. The CLI directory is added to PATH for
+  subsequent steps via $BASH_ENV. Optional API configuration parameters are
+  written to the CLI config file (~/.cloudsmith/config.ini).
 parameters:
   cli-version:
     type: string
-    default: ""
+    default: "latest"
     description: >
-      Pin a specific Cloudsmith CLI version (e.g. "1.2.0"). Leave empty to
-      install the latest available release.
-  pip-install:
-    type: boolean
-    default: false
-    description: >
-      Install via pip instead of the default zipapp. When true pip must be
-      available — the step fails if pip is not found.
+      Exact Cloudsmith CLI version to install (e.g. "1.19.2"), or "latest"
+      for the newest release.
   install-path:
     type: string
-    default: "$HOME/bin"
+    default: ""
     description: >
-      Directory where the Cloudsmith CLI zipapp binary is installed. Ignored
-      when installing via pip.
+      Absolute path to the root directory for versioned CLI installations.
+      Leave empty to use the default ($XDG_DATA_HOME/cloudsmith-cli or
+      $HOME/.local/share/cloudsmith-cli).
   api-host:
     type: string
     default: ""
@@ -45,152 +41,22 @@ parameters:
     type: string
     default: ""
     description: >
-      Custom user-agent string sent with Cloudsmith API requests (api_user_agent
-      in config.ini). Leave empty to use the default.
+      Custom user-agent string sent with Cloudsmith API requests
+      (api_user_agent in config.ini). Leave empty to use the default.
 steps:
   - run:
-      name: Install Cloudsmith CLI
-      command: |
-        cli_version="<<parameters.cli-version>>"
-        force_pip="<<parameters.pip-install>>"
-        install_path="<<parameters.install-path>>"
-        api_host="<<parameters.api-host>>"
-        api_proxy="<<parameters.api-proxy>>"
-        api_ssl_verify="<<parameters.api-ssl-verify>>"
-        api_user_agent="<<parameters.api-user-agent>>"
-
-        write_cli_config() {
-          if [[ -z "$api_host" && -z "$api_proxy" && "$api_ssl_verify" != "false" && -z "$api_user_agent" ]]; then
-            return
-          fi
-
-          local config_dir="${HOME}/.cloudsmith"
-          local config_file="${config_dir}/config.ini"
-
-          mkdir -p "$config_dir"
-          {
-            echo "[default]"
-            echo "api_host=${api_host}"
-            echo "api_proxy=${api_proxy}"
-            echo "api_ssl_verify=${api_ssl_verify}"
-            echo "api_user_agent=${api_user_agent}"
-          } > "$config_file"
-
-          echo "Cloudsmith CLI config written to $config_file"
-        }
-
-        add_install_path() {
-          case ":$PATH:" in
-            *":$install_path:"*) ;;
-            *)
-              export PATH="$install_path:$PATH"
-              echo "export PATH=\"$install_path:\$PATH\"" >> "$BASH_ENV"
-              ;;
-          esac
-        }
-
-        install_with_pip() {
-          local pip_cmd
-          local install_args=("install")
-
-          pip_cmd=$(command -v pip 2>/dev/null || command -v pip3 2>/dev/null)
-          if [[ -z "$pip_cmd" ]]; then
-            echo "pip-install is true but pip was not found. Ensure pip is" \
-              "available in this executor."
-            exit 1
-          fi
-
-          if [[ -n "$cli_version" ]]; then
-            install_args+=("cloudsmith-cli==$cli_version")
-          else
-            install_args+=("cloudsmith-cli" "--upgrade")
-          fi
-
-          if command -v sudo > /dev/null; then
-            sudo "$pip_cmd" "${install_args[@]}"
-          else
-            "$pip_cmd" "${install_args[@]}" --user
-          fi
-        }
-
-        zipapp_url() {
-          if [[ -n "$cli_version" ]]; then
-            echo "https://dl.cloudsmith.io/public/cloudsmith/cli-zipapp/raw/names/cloudsmith-cli/versions/${cli_version}/cloudsmith.pyz"
-          else
-            echo "https://dl.cloudsmith.io/public/cloudsmith/cli-zipapp/raw/names/cloudsmith-cli/versions/latest/cloudsmith.pyz"
-          fi
-        }
-
-        download_zipapp() {
-          local pyz_url="$1"
-          local destination="$2"
-
-          if ! curl -sSfL "$pyz_url" -o "$destination"; then
-            echo "Failed to download Cloudsmith CLI zipapp from:"
-            echo "  $pyz_url"
-            exit 1
-          fi
-        }
-
-        install_zipapp() {
-          local pyz_url
-          local target
-          local probe_file
-          local tmpfile
-
-          pyz_url="$(zipapp_url)"
-          target="${install_path}/cloudsmith"
-          probe_file="${install_path}/.cloudsmith-write-test-$$"
-
-          if mkdir -p "$install_path" 2>/dev/null && touch "$probe_file" 2>/dev/null; then
-            rm -f "$probe_file"
-            download_zipapp "$pyz_url" "$target"
-            chmod +x "$target"
-          elif command -v sudo > /dev/null; then
-            tmpfile="$(mktemp)"
-            download_zipapp "$pyz_url" "$tmpfile"
-
-            if ! sudo mkdir -p "$install_path"; then
-              echo "Failed to create install path '$install_path'."
-              rm -f "$tmpfile"
-              exit 1
-            fi
-
-            if ! sudo mv "$tmpfile" "$target"; then
-              echo "Failed to move Cloudsmith CLI zipapp into '$install_path'."
-              rm -f "$tmpfile"
-              exit 1
-            fi
-
-            sudo chmod +x "$target"
-          else
-            echo "Install path '$install_path' is not writable and sudo is not available."
-            echo "Set 'install-path' to a user-writable directory such as \$HOME/bin."
-            exit 1
-          fi
-
-          add_install_path
-          echo "Cloudsmith CLI installed to $target"
-        }
-
-        if [[ "$install_path" == ~* ]]; then
-          install_path="${install_path/#\~/$HOME}"
-        fi
-
-        write_cli_config
-
-        # Install the Cloudsmith CLI
-        if command -v cloudsmith > /dev/null && [[ "$force_pip" != "true" ]]; then
-          if [[ -n "$cli_version" ]]; then
-            echo "Warning: Cloudsmith CLI is already installed." \
-              "cli-version='$cli_version' was ignored. Set pip-install: true" \
-              "to enforce the version."
-          else
-            echo "Cloudsmith CLI is already installed."
-          fi
-
-        elif [[ "$force_pip" == "true" ]]; then
-          install_with_pip
-        else
-          install_zipapp
-        fi
+      name: Download and verify Cloudsmith CLI
+      environment:
+        CLOUDSMITH_CLI_VERSION: <<parameters.cli-version>>
+        CLOUDSMITH_CLI_INSTALL_ROOT: <<parameters.install-path>>
+        CLOUDSMITH_CLI_OUTPUT_FILE: /tmp/cloudsmith-cli-install/result.txt
+      command: <<include(scripts/install.sh)>>
+  - run:
+      name: Add Cloudsmith CLI to PATH
+      environment:
+        CLOUDSMITH_CLI_OUTPUT_FILE: /tmp/cloudsmith-cli-install/result.txt
+        PARAM_API_HOST: <<parameters.api-host>>
+        PARAM_API_PROXY: <<parameters.api-proxy>>
+        PARAM_API_SSL_VERIFY: <<parameters.api-ssl-verify>>
+        PARAM_API_USER_AGENT: <<parameters.api-user-agent>>
+      command: <<include(scripts/post-install.sh)>>
