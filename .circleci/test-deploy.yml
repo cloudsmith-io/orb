@@ -1,0 +1,161 @@
+---
+version: 2.1
+
+orbs:
+  # The orb built from src/ is injected here by orb-tools/continue.
+  cloudsmith: {}
+  orb-tools: circleci/orb-tools@12.4.0
+
+parameters:
+  test-organization:
+    type: string
+    default: bart-demo-org-terraform
+    description: Cloudsmith organization used by the OIDC integration test.
+  test-service-account:
+    type: string
+    default: tf-test-service-cs
+    description: Cloudsmith service account used by the OIDC integration test.
+
+# Run jobs on all branches and tags
+filters: &filters
+  tags:
+    only: /.*/
+
+# Run jobs only on semver release tags (e.g. v3.0.0)
+release-filters: &release-filters
+  branches:
+    ignore: /.*/
+  tags:
+    only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+
+executors:
+  linux-docker:
+    docker:
+      - image: cimg/base:current
+  alpine-docker:
+    docker:
+      - image: alpine:3.21
+  linux-machine:
+    machine:
+      image: ubuntu-2404:current
+  macos:
+    macos:
+      xcode: "16.2"
+
+jobs:
+  install-test:
+    parameters:
+      executor:
+        type: executor
+    executor: << parameters.executor >>
+    steps:
+      - run:
+          name: Install job dependencies (Alpine only)
+          shell: /bin/sh
+          command: |
+            if command -v apk > /dev/null 2>&1; then
+              apk add --no-cache bash curl ca-certificates
+            fi
+      - cloudsmith/install-cli
+      - run:
+          name: Verify the CLI is on PATH in later steps
+          command: |
+            command -v cloudsmith
+            cloudsmith --version
+
+  install-pinned-version-test:
+    executor: linux-docker
+    steps:
+      - cloudsmith/install-cli:
+          cli-version: "1.19.2"
+      - run:
+          name: Verify the pinned CLI version was installed
+          command: |
+            cloudsmith --version | grep -Fx "CLI Package Version: 1.19.2"
+
+  api-key-test:
+    executor: linux-docker
+    steps:
+      - run:
+          name: Skip unless CLOUDSMITH_API_KEY is available
+          command: |
+            if [ -z "${CLOUDSMITH_API_KEY:-}" ]; then
+              echo "CLOUDSMITH_API_KEY is not set; skipping the API key test."
+              circleci-agent step halt
+            fi
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run:
+          name: Verify API key authentication
+          command: cloudsmith whoami
+
+  oidc-test:
+    executor: linux-docker
+    steps:
+      - run:
+          name: Skip unless OIDC testing is enabled
+          command: |
+            if [ "${CLOUDSMITH_OIDC_TEST:-}" != "true" ]; then
+              echo "CLOUDSMITH_OIDC_TEST is not 'true'; skipping the OIDC test."
+              circleci-agent step halt
+            fi
+            if [ -z "${CIRCLE_OIDC_TOKEN_V2:-}" ] && [ -z "${CIRCLE_OIDC_TOKEN:-}" ]; then
+              echo "No OIDC token; the job must use a context. Skipping the OIDC test."
+              circleci-agent step halt
+            fi
+      - cloudsmith/install-cli
+      - cloudsmith/configure-oidc:
+          organization: << pipeline.parameters.test-organization >>
+          service-account: << pipeline.parameters.test-service-account >>
+          verify-auth: true
+      - run:
+          name: Verify OIDC configuration persists to later steps
+          command: cloudsmith whoami
+
+workflows:
+  test-deploy:
+    jobs:
+      - install-test:
+          matrix:
+            parameters:
+              executor: [linux-docker, alpine-docker, linux-machine, macos]
+          filters: *filters
+      - install-pinned-version-test:
+          filters: *filters
+      - api-key-test:
+          filters: *filters
+      - oidc-test:
+          context: orb-publishing
+          filters: *filters
+      - orb-tools/pack:
+          filters: *filters
+      # Publish a dev version on every push (except forked PRs and release tags)
+      - orb-tools/publish:
+          name: publish-dev
+          orb_name: cloudsmith/cloudsmith
+          vcs_type: << pipeline.project.type >>
+          pub_type: dev
+          context: orb-publishing
+          requires:
+            - orb-tools/pack
+            - install-test
+            - install-pinned-version-test
+            - api-key-test
+            - oidc-test
+          filters:
+            branches:
+              ignore: /^pull\/[0-9]+/
+      # Publish a production version when a semver tag is pushed
+      - orb-tools/publish:
+          name: publish-production
+          orb_name: cloudsmith/cloudsmith
+          vcs_type: << pipeline.project.type >>
+          pub_type: production
+          context: orb-publishing
+          requires:
+            - orb-tools/pack
+            - install-test
+            - install-pinned-version-test
+            - api-key-test
+            - oidc-test
+          filters: *release-filters
