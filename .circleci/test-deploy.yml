@@ -9,11 +9,11 @@ orbs:
 parameters:
   test-organization:
     type: string
-    default: bart-demo-org-terraform
+    default: ""
     description: Cloudsmith organization used by the OIDC integration test.
   test-service-account:
     type: string
-    default: tf-test-service-cs
+    default: ""
     description: Cloudsmith service account used by the OIDC integration test.
 
 # Run jobs on all branches and tags
@@ -99,6 +99,10 @@ jobs:
               echo "CLOUDSMITH_OIDC_TEST is not 'true'; skipping the OIDC test."
               circleci-agent step halt
             fi
+            if [ -z "<< pipeline.parameters.test-organization >>" ] || [ -z "<< pipeline.parameters.test-service-account >>" ]; then
+              echo "test-organization/test-service-account pipeline parameters are not set; skipping the OIDC test."
+              circleci-agent step halt
+            fi
             if [ -z "${CIRCLE_OIDC_TOKEN_V2:-}" ] && [ -z "${CIRCLE_OIDC_TOKEN:-}" ]; then
               echo "No OIDC token; the job must use a context. Skipping the OIDC test."
               circleci-agent step halt
@@ -123,6 +127,7 @@ workflows:
       - install-pinned-version-test:
           filters: *filters
       - api-key-test:
+          context: cloudsmith-api-key-test
           filters: *filters
       - oidc-test:
           context: orb-publishing

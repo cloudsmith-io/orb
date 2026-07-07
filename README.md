@@ -103,7 +103,11 @@ jobs:
 | `authenticate-with-oidc` | Replaced by `configure-oidc` — the CLI performs the token exchange itself, and `CLOUDSMITH_API_KEY` is no longer exported. Steps that consumed that variable directly must use the CLI instead |
 | `authenticate-with-oidc` `oidc-audience` | Removed — custom audiences must be configured on the Cloudsmith service account's OIDC provider settings instead |
 | `authenticate-with-oidc` `oidc-auth-retry` | Removed — retries are handled by the CLI |
-| `publish` | Removed — run `cloudsmith push <format> ...` directly after `install-cli` |
+| `publish` (`package-format`, `cloudsmith-repository`, `package-path`) | Removed — run `cloudsmith push <format> <owner/repo> <file>` directly after `install-cli` and authentication |
+| `publish` `allow-republish: true` | `--republish` flag on `cloudsmith push` |
+| `publish` `package-distribution` (deb/rpm/alpine) | Distribution path segment: `cloudsmith push deb my-org/my-repo/ubuntu/focal app.deb` |
+| `publish` `package-pom-file` (maven) | `--pom-file <path>` flag |
+| `publish` raw metadata (`package-name`, `package-version`, `package-summary`, `package-description`) | `--name`, `--version`, `--summary`, `--description` flags on `cloudsmith push raw` |
 | `default` executor uses `cimg/python` | Uses `cimg/base` — Python is not required |
 
 ## Development
