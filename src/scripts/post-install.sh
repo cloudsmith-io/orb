@@ -27,13 +27,15 @@ export PATH="$bin_dir:$PATH"
 # shellcheck disable=SC2016  # $PATH must stay literal for later steps
 printf 'export PATH=%q:$PATH\n' "$bin_dir" >> "$BASH_ENV"
 
-if [[ -n "$PARAM_API_HOST" || -n "$PARAM_API_PROXY" || "$PARAM_API_SSL_VERIFY" == "false" || -n "$PARAM_API_USER_AGENT" ]]; then
+ssl_verify_disabled() { [[ "$PARAM_API_SSL_VERIFY" == "0" ]]; }
+
+if [[ -n "$PARAM_API_HOST" || -n "$PARAM_API_PROXY" || -n "$PARAM_API_USER_AGENT" ]] || ssl_verify_disabled; then
   mkdir -p "$HOME/.cloudsmith"
   {
     echo "[default]"
     [[ -z "$PARAM_API_HOST" ]] || echo "api_host=$PARAM_API_HOST"
     [[ -z "$PARAM_API_PROXY" ]] || echo "api_proxy=$PARAM_API_PROXY"
-    [[ "$PARAM_API_SSL_VERIFY" != "false" ]] || echo "api_ssl_verify=false"
+    ! ssl_verify_disabled || echo "api_ssl_verify=false"
     [[ -z "$PARAM_API_USER_AGENT" ]] || echo "api_user_agent=$PARAM_API_USER_AGENT"
   } > "$HOME/.cloudsmith/config.ini"
   echo "Cloudsmith CLI config written to $HOME/.cloudsmith/config.ini"

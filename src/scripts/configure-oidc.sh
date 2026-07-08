@@ -25,12 +25,4 @@ export CLOUDSMITH_SERVICE_SLUG="$PARAM_SERVICE_ACCOUNT"
 printf 'export CLOUDSMITH_ORG=%q\n' "$CLOUDSMITH_ORG" >> "$BASH_ENV"
 printf 'export CLOUDSMITH_SERVICE_SLUG=%q\n' "$CLOUDSMITH_SERVICE_SLUG" >> "$BASH_ENV"
 
-if [[ "$PARAM_VERIFY_AUTH" == "true" ]]; then
-  if ! command -v cloudsmith > /dev/null 2>&1; then
-    echo "verify-auth requires the Cloudsmith CLI; run install-cli before configure-oidc" >&2
-    exit 1
-  fi
-  cloudsmith whoami
-fi
-
 echo "Cloudsmith OIDC configured for organization $CLOUDSMITH_ORG"

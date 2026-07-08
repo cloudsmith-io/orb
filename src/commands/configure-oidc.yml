@@ -25,5 +25,10 @@ steps:
       environment:
         PARAM_ORGANIZATION: <<parameters.organization>>
         PARAM_SERVICE_ACCOUNT: <<parameters.service-account>>
-        PARAM_VERIFY_AUTH: <<parameters.verify-auth>>
       command: <<include(scripts/configure-oidc.sh)>>
+  - when:
+      condition: <<parameters.verify-auth>>
+      steps:
+        - run:
+            name: Verify Cloudsmith authentication
+            command: cloudsmith whoami
