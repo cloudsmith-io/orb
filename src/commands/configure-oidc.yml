@@ -1,0 +1,34 @@
+---
+description: >
+  Configures the Cloudsmith CLI to authenticate with CircleCI's OIDC token.
+  Exports CLOUDSMITH_ORG and CLOUDSMITH_SERVICE_SLUG for subsequent steps via
+  $BASH_ENV; the CLI exchanges the CircleCI OIDC token for Cloudsmith
+  credentials when the first authenticated command runs. No API token is
+  exchanged or exported by this command. The job must use at least one
+  CircleCI context, otherwise no OIDC token is issued.
+parameters:
+  organization:
+    type: string
+    description: Cloudsmith organization (workspace) slug.
+  service-account:
+    type: string
+    description: Cloudsmith service account slug used for the OIDC token exchange.
+  verify-auth:
+    type: boolean
+    default: false
+    description: >
+      Run "cloudsmith whoami" to verify authentication. Requires the CLI to
+      be installed first (see install-cli).
+steps:
+  - run:
+      name: Configure Cloudsmith OIDC
+      environment:
+        PARAM_ORGANIZATION: <<parameters.organization>>
+        PARAM_SERVICE_ACCOUNT: <<parameters.service-account>>
+      command: <<include(scripts/configure-oidc.sh)>>
+  - when:
+      condition: <<parameters.verify-auth>>
+      steps:
+        - run:
+            name: Verify Cloudsmith authentication
+            command: cloudsmith whoami

@@ -1,0 +1,30 @@
+---
+description: >
+  Install the Cloudsmith CLI and authenticate with CircleCI OIDC, then run
+  CLI commands directly. The job must use a context so that CircleCI issues
+  an OIDC token.
+usage:
+  version: 2.1
+
+  orbs:
+    cloudsmith: cloudsmith/cloudsmith@3.0.0
+
+  workflows:
+    cloudsmith_oidc_publish:
+      jobs:
+        - publish:
+            context: my-context
+
+  jobs:
+    publish:
+      executor: cloudsmith/default
+      steps:
+        - checkout
+        - cloudsmith/install-cli
+        - cloudsmith/configure-oidc:
+            organization: my-org
+            service-account: my-service-account
+            verify-auth: true
+        - run:
+            name: Publish package
+            command: cloudsmith push raw my-org/my-repo dist/app.tar.gz
