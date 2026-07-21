@@ -9,11 +9,11 @@ orbs:
 parameters:
   test-organization:
     type: string
-    default: ""
+    default: "cloudsmith"
     description: Cloudsmith organization used by the OIDC integration test.
   test-service-account:
     type: string
-    default: ""
+    default: "cli-orb-test"
     description: Cloudsmith service account used by the OIDC integration test.
 
 # Run jobs on all branches and tags
