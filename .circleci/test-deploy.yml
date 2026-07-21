@@ -59,6 +59,9 @@ jobs:
       - cloudsmith/install-cli
       - run:
           name: Verify the CLI is on PATH in later steps
+          # PATH is persisted through $BASH_ENV, which only bash sources; on
+          # images without bash at container start the default shell is sh.
+          shell: /bin/bash
           command: |
             command -v cloudsmith
             cloudsmith --version

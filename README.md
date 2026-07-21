@@ -142,7 +142,7 @@ The `default` executor uses the `cimg/base` convenience image with the `current`
 
 ## Environment variables
 
-The orb persists configuration for later steps through CircleCI’s `$BASH_ENV` file.
+The orb persists configuration for later steps through CircleCI’s `$BASH_ENV` file. Only `bash` steps source `$BASH_ENV`, and CircleCI selects the default step shell when the container starts — on minimal images where `bash` is installed during the job (for example `alpine`), give any step that runs the CLI an explicit `shell: /bin/bash`.
 
 | Authentication method | Variable | Handling |
 | --- | --- | --- |
