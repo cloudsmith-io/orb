@@ -53,6 +53,9 @@ steps:
       command: <<include(scripts/install.sh)>>
   - run:
       name: Add Cloudsmith CLI to PATH
+      # The default shell is chosen when the container starts, so bash
+      # installed by an earlier step is not picked up without this.
+      shell: /bin/bash
       environment:
         CLOUDSMITH_CLI_OUTPUT_FILE: /tmp/cloudsmith-cli-install/result.txt
         PARAM_API_HOST: <<parameters.api-host>>

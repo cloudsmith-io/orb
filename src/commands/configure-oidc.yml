@@ -22,6 +22,9 @@ parameters:
 steps:
   - run:
       name: Configure Cloudsmith OIDC
+      # The default shell is chosen when the container starts, so bash
+      # installed by an earlier step is not picked up without this.
+      shell: /bin/bash
       environment:
         PARAM_ORGANIZATION: <<parameters.organization>>
         PARAM_SERVICE_ACCOUNT: <<parameters.service-account>>
