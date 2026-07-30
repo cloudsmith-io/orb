@@ -70,11 +70,11 @@ jobs:
     executor: linux-docker
     steps:
       - cloudsmith/install-cli:
-          cli-version: "1.19.2"
+          cli-version: "1.20.1"
       - run:
           name: Verify the pinned CLI version was installed
           command: |
-            cloudsmith --version | grep -Fx "CLI Package Version: 1.19.2"
+            cloudsmith --version | grep -Fx "CLI Package Version: 1.20.1"
 
   api-key-test:
     executor: linux-docker
