@@ -1,12 +1,13 @@
 ---
 description: |
-  Uses the cimg/python convenience image, which has the prerequisites for installing Cloudsmith's CLI.
+  A minimal cimg/base image. The standalone Cloudsmith CLI has no Python or
+  other runtime requirements.
 parameters:
   tag:
     type: string
-    default: "3.10"
+    default: "current"
     description: >-
-      Pick a specific cimg/python image version tag:
-      https://circleci.com/developer/images/image/cimg/python
+      Pick a specific cimg/base image tag:
+      https://circleci.com/developer/images/image/cimg/base
 docker:
-  - image: cimg/python:<<parameters.tag>>
+  - image: cimg/base:<<parameters.tag>>

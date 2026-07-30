@@ -1,67 +1,65 @@
 ---
 version: 2.1
-
-parameters:
-  publish-orb-name:
-    type: string
-    default: cloudsmith/cloudsmith
+setup: true
 
 orbs:
   orb-tools: circleci/orb-tools@12.4.0
+  shellcheck: circleci/shellcheck@3.4.0
 
 # Run jobs on all branches and tags
 filters: &filters
   tags:
     only: /.*/
 
-# Run jobs only on semver release tags (e.g. v2.0.0)
-release-filters: &release-filters
-  branches:
-    ignore: /.*/
-  tags:
-    only: /^v[0-9]+\.[0-9]+\.[0-9]+$/
+jobs:
+  # The installer in src/scripts/install.sh is vendored from
+  # https://github.com/cloudsmith-io/cloudsmith-cli-install-script and must
+  # only change together with src/scripts/install.sh.version.
+  installer-drift-check:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Verify vendored installer matches the recorded checksum
+          command: |
+            expected="$(awk -F= '$1 == "sha256" {print $2}' src/scripts/install.sh.version)"
+            actual="$(sha256sum src/scripts/install.sh | awk '{print $1}')"
+            if [ "$expected" != "$actual" ]; then
+              echo "src/scripts/install.sh does not match src/scripts/install.sh.version" >&2
+              echo "expected sha256: $expected" >&2
+              echo "actual sha256:   $actual" >&2
+              echo "Update both files together when vendoring a new installer release." >&2
+              exit 1
+            fi
+            version="$(awk -F= '$1 == "version" {print $2}' src/scripts/install.sh.version)"
+            echo "Vendored installer (version: $version) matches the recorded checksum."
 
 workflows:
-  lint-pack-publish:
+  lint-pack:
     jobs:
-      # Lint all YAML files in src/
       - orb-tools/lint:
           filters: *filters
-      # Pack src/ into a single orb.yml and validate it
       - orb-tools/pack:
           filters: *filters
-      # Review orb source against CircleCI best practices
       - orb-tools/review:
-          filters: *filters
           orb_name: cloudsmith
-          # RC009: long inline commands (we use inline bash intentionally)
-          # RC010: snake_case naming (our params use kebab-case by convention)
+          # RC009: inline commands are used for trivial steps intentionally
+          # RC010: parameters use kebab-case by convention
           exclude: RC009,RC010
-      # Publish a dev version on every push (except release tags and PRs)
-      - orb-tools/publish:
-          name: publish-dev
-          orb_name: << pipeline.parameters.publish-orb-name >>
+          filters: *filters
+      - shellcheck/check:
+          filters: *filters
+      - installer-drift-check:
+          filters: *filters
+      - orb-tools/continue:
+          pipeline_number: << pipeline.number >>
           vcs_type: << pipeline.project.type >>
-          pub_type: dev
-          context: orb-publishing
+          orb_name: cloudsmith
           requires:
             - orb-tools/lint
             - orb-tools/pack
             - orb-tools/review
-          filters:
-            branches:
-              ignore: /^pull\/[0-9]+/
-            tags:
-              ignore: /^v[0-9]+\.[0-9]+\.[0-9]+$/
-      # Publish a production version when a semver tag is pushed
-      - orb-tools/publish:
-          name: publish-production
-          orb_name: << pipeline.parameters.publish-orb-name >>
-          vcs_type: << pipeline.project.type >>
-          pub_type: production
-          context: orb-publishing
-          requires:
-            - orb-tools/lint
-            - orb-tools/pack
-            - orb-tools/review
-          filters: *release-filters
+            - shellcheck/check
+            - installer-drift-check
+          filters: *filters

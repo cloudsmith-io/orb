@@ -1,132 +1,252 @@
 # Cloudsmith Orb for CircleCI
 
-CircleCI orb for publishing packages to (and interacting with) Cloudsmith repositories.
+[![CircleCI build](https://dl.circleci.com/status-badge/img/gh/cloudsmith-io/orb/tree/master.svg?style=shield)](https://dl.circleci.com/status-badge/redirect/gh/cloudsmith-io/orb/tree/master)
+[![Orb Registry](https://badges.circleci.com/orbs/cloudsmith/cloudsmith.svg)](https://circleci.com/developer/orbs/orb/cloudsmith/cloudsmith)
 
-See [onsite documentation](https://circleci.com/orbs/registry/orb/cloudsmith/cloudsmith) for further details.
+Install the standalone [Cloudsmith CLI](https://github.com/cloudsmith-io/cloudsmith-cli), add it to `PATH`, and configure authentication for the rest of a CircleCI job. The orb does not require Python, pip, or `jq` on the executor image.
 
-## Commands
+[Quick start](#quick-start) · [Configuration](#configuration) · [Migration guide](#migrating-from-v2) · [Contributing](#contributing)
 
-### `authenticate-with-oidc`
+## At a glance
 
-Authenticate with Cloudsmith using OpenID Connect (OIDC) to obtain a short-lived API token. The token is exported as the `CLOUDSMITH_API_KEY` environment variable for use by the Cloudsmith CLI or any subsequent steps.
+| Capability | Support |
+| --- | --- |
+| Authentication | OpenID Connect (OIDC) or API key |
+| Executors | Linux and macOS with `bash` and `curl` or `wget` |
+| Architectures | x86-64, plus Linux and macOS ARM64 |
+| Installation | Standalone CLI binary with SHA-256 download verification |
+| Version selection | Latest release or a specific CLI version |
 
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `organization` | string | *required* | Cloudsmith organization name |
-| `service-account` | string | *required* | Cloudsmith service account name |
-| `oidc-audience` | string | `""` | Custom audience for the OIDC token exchange (omitted when empty) |
-| `oidc-auth-retry` | integer | `3` | Number of token exchange attempts (5 s delay between retries) |
+## Quick start
 
+### Authenticate with OIDC
 
-### `install-cli`
+OIDC is the recommended option for CI/CD because it uses short-lived credentials instead of a stored API key. Configure a Cloudsmith service account and an OIDC provider by following the [Cloudsmith OIDC documentation](https://docs.cloudsmith.com/authentication/openid-connect) before using this example.
 
-Installs the Cloudsmith CLI by downloading the zipapp from Cloudsmith. Set `pip-install: true` to install via pip instead. Optional parameters configure the CLI via `~/.cloudsmith/config.ini`.
-
-| Parameter | Type | Default | Description |
-|---|---|---|---|
-| `cli-version` | string | `""` | Pin a specific CLI version (e.g. `"1.2.0"`). Empty installs the latest |
-| `pip-install` | boolean | `false` | Install via pip instead of the default zipapp |
-| `install-path` | string | `$HOME/bin` | Directory where the zipapp binary is installed and added to `PATH` (ignored when using pip) |
-| `api-host` | string | `""` | Override `api_host` in config.ini (default: `api.cloudsmith.io`) |
-| `api-proxy` | string | `""` | HTTP/HTTPS proxy (`api_proxy` in config.ini) |
-| `api-ssl-verify` | boolean | `true` | Enable/disable SSL verification (`api_ssl_verify` in config.ini) |
-| `api-user-agent` | string | `""` | Custom user-agent (`api_user_agent` in config.ini) |
-
-### `ensure-api-key`
-
-Validates that the `CLOUDSMITH_API_KEY` environment variable is set. Fails the build immediately if it is missing.
-
-### `publish` *(deprecated)*
-
-Wraps individual `cloudsmith push` calls. This command will be removed in a future major version. The recommended approach is to call `install-cli` and `authenticate-with-oidc` (or `ensure-api-key`), then invoke the Cloudsmith CLI directly in your run steps.
-
-## Executor
-
-The `default` executor uses the `cimg/python` convenience image (default tag `3.10`), which has the prerequisites for installing the Cloudsmith CLI.
-
-## Usage
-
-### Recommended — OIDC authentication with direct CLI usage
+> [!IMPORTANT]
+> The job must use at least one [CircleCI context](https://circleci.com/docs/contexts/). Without a context, CircleCI does not issue the OIDC token used to authenticate with Cloudsmith.
 
 ```yaml
 version: 2.1
 
 orbs:
-  cloudsmith: cloudsmith/cloudsmith@2.0.0
+  cloudsmith: cloudsmith/cloudsmith@3.0.0
+
+workflows:
+  verify:
+    jobs:
+      - verify:
+          context: my-context
+
+jobs:
+  verify:
+    executor: cloudsmith/default
+    steps:
+      - cloudsmith/install-cli
+      - cloudsmith/configure-oidc:
+          organization: YOUR-NAMESPACE
+          service-account: YOUR-SERVICE-ACCOUNT
+      - run: cloudsmith whoami
+```
+
+### Authenticate with an API key
+
+Provide the API key through the `CLOUDSMITH_API_KEY` environment variable, typically from a [CircleCI context](https://circleci.com/docs/contexts/). For automated pipelines, use a [Cloudsmith service account](https://docs.cloudsmith.com/accounts-and-teams/service-accounts) rather than a personal API key.
+
+```yaml
+version: 2.1
+
+orbs:
+  cloudsmith: cloudsmith/cloudsmith@3.0.0
+
+workflows:
+  verify:
+    jobs:
+      - verify:
+          context: my-context
+
+jobs:
+  verify:
+    executor: cloudsmith/default
+    steps:
+      - cloudsmith/ensure-api-key
+      - cloudsmith/install-cli
+      - run: cloudsmith whoami
+```
+
+Personal API keys are available from [Cloudsmith API settings](https://cloudsmith.io/user/settings/api/).
+
+## Authentication
+
+Choose one of the following authentication methods:
+
+| Method | Configuration | Credential handling | Best suited to |
+| --- | --- | --- | --- |
+| OIDC | `organization` and `service-account` on `configure-oidc` | The CLI exchanges a CircleCI OIDC token on its first authenticated command | CI/CD pipelines |
+| API key | `CLOUDSMITH_API_KEY`, optionally checked by `ensure-api-key` | CircleCI supplies the key through a context or project environment variable | Pipelines that cannot use OIDC |
+
+With OIDC, `configure-oidc` exports the service account context needed by the CLI. The Cloudsmith access token is requested only when the CLI first needs to authenticate and is not exposed by the orb.
+
+```mermaid
+flowchart LR
+    A[configure-oidc command] -->|Exports OIDC settings| B[Cloudsmith CLI command]
+    B -->|Requests identity token| C[CircleCI OIDC]
+    C -->|Exchanges identity| D[Cloudsmith]
+```
+
+Set `verify-auth: true` on `configure-oidc` to run `cloudsmith whoami` during setup and fail early if authentication is not configured correctly.
+
+## Configuration
+
+### `install-cli`
+
+Installs the standalone Cloudsmith CLI on a Linux or macOS executor and adds its binary directory to `PATH` for later steps through `$BASH_ENV`.
+
+#### Installation parameters
+
+| Parameter | Description | Required | Default |
+| --- | --- | --- | --- |
+| `cli-version` | CLI version to install, such as `1.20.0` | No | `latest` |
+| `install-path` | Root directory for versioned CLI installations | No | `$XDG_DATA_HOME/cloudsmith-cli` or `$HOME/.local/share/cloudsmith-cli` |
+
+#### API configuration parameters
+
+When supplied, these values are written to `~/.cloudsmith/config.ini`.
+
+| Parameter | Description | Required | Default |
+| --- | --- | --- | --- |
+| `api-host` | Cloudsmith API host override | No | `api.cloudsmith.io` |
+| `api-proxy` | HTTP or HTTPS proxy for Cloudsmith API calls | No | — |
+| `api-ssl-verify` | Whether to verify API SSL certificates | No | `true` |
+| `api-user-agent` | User agent override for Cloudsmith API requests | No | — |
+
+### `configure-oidc`
+
+Configures the CLI for CircleCI-native OIDC. The job must use at least one context so CircleCI issues an OIDC token.
+
+| Parameter | Description | Required | Default |
+| --- | --- | --- | --- |
+| `organization` | Cloudsmith organization or namespace | Yes | — |
+| `service-account` | Cloudsmith service account slug | Yes | — |
+| `verify-auth` | Run `cloudsmith whoami` after configuration | No | `false` |
+
+Run `install-cli` before using `verify-auth`.
+
+### `ensure-api-key`
+
+Validates that `CLOUDSMITH_API_KEY` is present and fails the job immediately when it is missing.
+
+### Default executor
+
+The `default` executor uses the `cimg/base` convenience image with the `current` tag. You can also use the orb commands with another Linux or macOS executor that provides `bash` and either `curl` or `wget`.
+
+## Environment variables
+
+The orb persists configuration for later steps through CircleCI’s `$BASH_ENV` file. Only `bash` steps source `$BASH_ENV`, and CircleCI selects the default step shell when the container starts — on minimal images where `bash` is installed during the job (for example `alpine`), give any step that runs the CLI an explicit `shell: /bin/bash`.
+
+| Authentication method | Variable | Handling |
+| --- | --- | --- |
+| OIDC | `CLOUDSMITH_ORG` | Exported by `configure-oidc` |
+| OIDC | `CLOUDSMITH_SERVICE_SLUG` | Exported by `configure-oidc` |
+| OIDC | `CIRCLE_OIDC_TOKEN_V2` or `CIRCLE_OIDC_TOKEN` | Issued automatically when the job uses a CircleCI context |
+| API key | `CLOUDSMITH_API_KEY` | Supply through a context or project environment variable |
+
+## Publish a package
+
+The following workflow installs the CLI with OIDC authentication and publishes a raw package:
+
+```yaml
+version: 2.1
+
+orbs:
+  cloudsmith: cloudsmith/cloudsmith@3.0.0
 
 workflows:
   publish:
     jobs:
-      - publish
+      - publish:
+          context: my-context
 
 jobs:
   publish:
     executor: cloudsmith/default
     steps:
       - checkout
-      - cloudsmith/authenticate-with-oidc:
-          organization: my-org
-          service-account: my-service-account
       - cloudsmith/install-cli
+      - cloudsmith/configure-oidc:
+          organization: YOUR-NAMESPACE
+          service-account: YOUR-SERVICE-ACCOUNT
       - run:
-          name: Build and publish Python package
-          command: |
-            pip install build
-            python -m build --wheel
-            cloudsmith push python my-org/my-repo dist/*.whl
+          name: Publish package
+          command: cloudsmith push raw YOUR-NAMESPACE/YOUR-REPOSITORY dist/app.tar.gz
 ```
 
-### API key authentication
+See [Supported Formats](https://docs.cloudsmith.com/formats) for the upload command and options for each package format.
 
-```yaml
-version: 2.1
+## Migrating from v2
 
-orbs:
-  cloudsmith: cloudsmith/cloudsmith@2.0.0
+Version 3 installs the standalone CLI instead of the Python package and uses CLI-native OIDC authentication.
 
-jobs:
-  publish:
-    executor: cloudsmith/default
-    steps:
-      - checkout
-      - cloudsmith/ensure-api-key
-      - cloudsmith/install-cli
-      - run:
-          name: Build and publish
-          command: |
-            pip install build
-            python -m build --wheel
-            cloudsmith push python cloudsmith/examples dist/*.whl
+> [!NOTE]
+> OIDC authentication is now lazy: the CLI exchanges the token on its first authenticated command. Use `verify-auth: true` if the setup step should validate credentials immediately.
+
+<details>
+<summary><strong>View removed commands, parameters, and migration steps</strong></summary>
+
+### Installation changes
+
+| In v2 | In v3 | Migration |
+| --- | --- | --- |
+| `install-cli` downloads a Python zipapp | Installs a SHA-256-verified standalone binary | Remove Python and pip setup used only by this orb. |
+| `pip-install: true` | Removed | Delete the parameter. |
+| `install-path` defaults to `$HOME/bin` and receives the binary directly | Defines the versioned installation root | Update custom paths if the old single-file layout is required elsewhere. |
+| `cli-version: ""` selects the latest release | `latest` is the explicit default | Remove empty overrides or replace them with `latest`. |
+| `default` executor uses `cimg/python` | Uses `cimg/base` | Add Python explicitly only when other job steps require it. |
+
+### Authentication changes
+
+| In v2 | In v3 | Migration |
+| --- | --- | --- |
+| `authenticate-with-oidc` | Replaced by `configure-oidc` | Rename the command. The CLI now performs the token exchange itself. |
+| `authenticate-with-oidc` exports `CLOUDSMITH_API_KEY` | No Cloudsmith API token is exported | Use `cloudsmith` commands for authenticated operations. |
+| `oidc-audience` | Removed | Configure custom audiences on the Cloudsmith service account’s OIDC provider. |
+| `oidc-auth-retry` | Removed | The CLI manages token exchange retries. |
+
+### Publishing changes
+
+The `publish` command has been removed. Run `cloudsmith push` directly after installation and authentication.
+
+| Removed `publish` parameter | CLI equivalent |
+| --- | --- |
+| `package-format`, `cloudsmith-repository`, `package-path` | `cloudsmith push FORMAT OWNER/REPOSITORY FILE` |
+| `allow-republish: true` | `--republish` |
+| `package-distribution` | Distribution path, such as `OWNER/REPOSITORY/ubuntu/focal` |
+| `package-pom-file` | `--pom-file PATH` |
+| Raw package metadata | `--name`, `--version`, `--summary`, and `--description` |
+
+</details>
+
+## Contributing
+
+The orb source is stored as individual YAML and shell files under `src/`. The CircleCI CLI packs these files into `orb.yml` for validation and publishing.
+
+<details>
+<summary><strong>View local development and release commands</strong></summary>
+
+Pack and validate the orb from the repository root:
+
+```bash
+circleci orb pack src/ > orb.yml
+circleci orb validate orb.yml
+shellcheck src/scripts/*.sh
 ```
 
-## Development
+`src/scripts/install.sh` is synchronized with the [Cloudsmith CLI installer](https://github.com/cloudsmith-io/cloudsmith-cli-install-script) and bundled into the published orb. Do not edit it directly; update it together with `src/scripts/install.sh.version`.
 
-We use the [CircleCI CLI](https://circleci.com/docs/guides/toolkit/local-cli/) to perform common development and release tasks for this orb. Please first ensure you have it installed and configured with appropriate credentials.
+Branches publish development releases automatically. To create a production release after merging to `master`, create a `v`-prefixed semantic version tag such as `v3.0.0`.
 
-### Generating the orb
+</details>
 
-We store the orb in git as individual YAML files. Before we can use the orb or perform further actions we need to "pack" it up into a single `orb.yml` file. We do so with the `pack` command:
+## Support
 
-```
-$ circleci config pack src/ > orb.yml
-```
-
-### Validating the orb
-
-Once generated, we can use the CLI to validate that the orb is correctly structured and meets basic standards:
-
-```
-$ circleci orb validate orb.yml
-```
-
-## Release Management
-
-Releasing the orb happens automatically from CI using the [`circleci/orb-tools`](https://circleci.com/developer/orbs/orb/circleci/orb-tools) orb. The orb source is linted, reviewed for best practices, packed, and validated as part of the pipeline.
-
-### Dev/Alpha releases
-To make a development (or alpha) release, simply push your changes to a branch on GitHub. CircleCI will automatically build the orb and push a development release to the version `cloudsmith/cloudsmith@dev:$BRANCH_NAME`.
-
-### Production releases
-Once happy with your changes, merge to master as normal via a PR and then tag a new release (either via CI or the GitHub UI) with an appropriate `v`-prefixed semver version.
-
-For example, if you create a tag named `v2.0.0` it'll result in a public release to `cloudsmith/cloudsmith@2.0.0`.
+For help, [open a GitHub issue](https://github.com/cloudsmith-io/orb/issues) or contact [Cloudsmith Support](https://support.cloudsmith.com/).
