@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# Copyright 2026 Cloudsmith Ltd
 # Pins the default cli-version of install-cli to a new Cloudsmith CLI release
 # and records the change as a release of the orb in CHANGELOG.md. The release
 # is a patch release, or a minor release that also includes the entries under
