@@ -1,6 +1,7 @@
 name: Release
 
-# Tags the newest version in CHANGELOG.md when no tag exists for it yet.
+# Tags and releases the newest version in CHANGELOG.md when it has no tag
+# or no GitHub release yet.
 # CircleCI receives the tag push and publishes that version of the orb.
 on:
   push:
@@ -39,13 +40,15 @@ jobs:
           tag="v$version"
           status=0
           git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || status=$?
-          case "$status" in
-            0) echo "$tag is already released"; exit 0 ;;
-            2) echo "Releasing $tag" ;;
-            *) exit "$status" ;;
-          esac
           # CircleCI starts tag pipelines from push webhooks, so push the tag
           # with git instead of creating it through the release API.
-          git tag "$tag" "$GITHUB_SHA"
-          git push origin "refs/tags/$tag"
-          gh release create "$tag" --verify-tag --title "$tag" --generate-notes
+          case "$status" in
+            0) echo "$tag already exists" ;;
+            2)
+              git tag "$tag" "$GITHUB_SHA"
+              git push origin "refs/tags/$tag"
+              ;;
+            *) exit "$status" ;;
+          esac
+          gh release view "$tag" > /dev/null 2>&1 \
+            || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
