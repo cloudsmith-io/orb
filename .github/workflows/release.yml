@@ -1,0 +1,51 @@
+name: Release
+
+# Tags the newest version in CHANGELOG.md when no tag exists for it yet.
+# CircleCI receives the tag push and publishes that version of the orb.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - CHANGELOG.md
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  release:
+    name: Tag the newest CHANGELOG version
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write # push the tag and create the GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+
+      - name: Push the tag and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          version="$(sed -n 's/^## \[\([0-9]*\.[0-9]*\.[0-9]*\)\].*/\1/p' CHANGELOG.md | head -n 1)"
+          test -n "$version"
+          tag="v$version"
+          status=0
+          git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || status=$?
+          case "$status" in
+            0) echo "$tag is already released"; exit 0 ;;
+            2) echo "Releasing $tag" ;;
+            *) exit "$status" ;;
+          esac
+          # CircleCI starts tag pipelines from push webhooks, so push the tag
+          # with git instead of creating it through the release API.
+          git tag "$tag" "$GITHUB_SHA"
+          git push origin "refs/tags/$tag"
+          gh release create "$tag" --verify-tag --title "$tag" --generate-notes

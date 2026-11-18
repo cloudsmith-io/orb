@@ -35,6 +35,15 @@ jobs:
             version="$(awk -F= '$1 == "version" {print $2}' src/scripts/install.sh.version)"
             echo "Vendored installer (version: $version) matches the recorded checksum."
 
+  bump-cli-version-test:
+    docker:
+      - image: cimg/base:current
+    steps:
+      - checkout
+      - run:
+          name: Test the CLI version bump script
+          command: bash scripts/test-bump-cli-version.sh
+
 workflows:
   lint-pack:
     jobs:
@@ -52,6 +61,8 @@ workflows:
           filters: *filters
       - installer-drift-check:
           filters: *filters
+      - bump-cli-version-test:
+          filters: *filters
       - orb-tools/continue:
           pipeline_number: << pipeline.number >>
           vcs_type: << pipeline.project.type >>
@@ -62,4 +73,5 @@ workflows:
             - orb-tools/review
             - shellcheck/check
             - installer-drift-check
+            - bump-cli-version-test
           filters: *filters

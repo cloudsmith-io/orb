@@ -15,7 +15,7 @@ Install the standalone [Cloudsmith CLI](https://github.com/cloudsmith-io/cloudsm
 | Executors | Linux and macOS with `bash` and `curl` or `wget` |
 | Architectures | x86-64, plus Linux and macOS ARM64 |
 | Installation | Standalone CLI binary with SHA-256 download verification |
-| Version selection | Latest release or a specific CLI version |
+| Version selection | A pinned CLI release, the latest release, or a specific CLI version |
 
 ## Quick start
 
@@ -106,8 +106,10 @@ Installs the standalone Cloudsmith CLI on a Linux or macOS executor and adds its
 
 | Parameter | Description | Required | Default |
 | --- | --- | --- | --- |
-| `cli-version` | CLI version to install, such as `1.20.0` | No | `latest` |
+| `cli-version` | CLI version to install, such as `1.20.0`, or `latest` | No | The CLI release pinned by this orb version |
 | `install-path` | Root directory for versioned CLI installations | No | `$XDG_DATA_HOME/cloudsmith-cli` or `$HOME/.local/share/cloudsmith-cli` |
+
+Each orb release pins `cli-version` to an exact CLI release. The maintainers move the pin to each new CLI release in the same major version. The pin does not move to a new major version of the CLI automatically. Set `cli-version: latest` to install the newest CLI release instead.
 
 #### API configuration parameters
 
@@ -200,7 +202,7 @@ Version 3 installs the standalone CLI instead of the Python package and uses CLI
 | `install-cli` downloads a Python zipapp | Installs a SHA-256-verified standalone binary | Remove Python and pip setup used only by this orb. |
 | `pip-install: true` | Removed | Delete the parameter. |
 | `install-path` defaults to `$HOME/bin` and receives the binary directly | Defines the versioned installation root | Update custom paths if the old single-file layout is required elsewhere. |
-| `cli-version: ""` selects the latest release | `latest` is the explicit default | Remove empty overrides or replace them with `latest`. |
+| `cli-version: ""` selects the latest release | `latest` selects the latest release | Remove empty overrides or replace them with `latest`. |
 | `default` executor uses `cimg/python` | Uses `cimg/base` | Add Python explicitly only when other job steps require it. |
 
 ### Authentication changes
@@ -243,7 +245,9 @@ shellcheck src/scripts/*.sh
 
 `src/scripts/install.sh` is synchronized with the [Cloudsmith CLI installer](https://github.com/cloudsmith-io/cloudsmith-cli-install-script) and bundled into the published orb. Do not edit it directly; update it together with `src/scripts/install.sh.version`.
 
-Branches publish development releases automatically. To create a production release after merging to `master`, create a `v`-prefixed semantic version tag such as `v3.0.0`.
+Branches publish development releases automatically. To create a production release, add a version section to `CHANGELOG.md` and merge it to `master`. A GitHub Actions workflow then creates the `v`-prefixed tag, such as `v3.0.0`, and CircleCI publishes that version.
+
+The default `cli-version` is pinned to a Cloudsmith CLI release. When the CLI publishes a release in the same major version, a workflow opens and merges a pull request that moves the pin and adds a `CHANGELOG.md` section. To move the pin by hand, run `scripts/bump-cli-version.sh VERSION`.
 
 </details>
 
