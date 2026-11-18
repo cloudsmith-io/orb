@@ -31,7 +31,7 @@ jobs:
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
         with:
           # CircleCI must see the tag push as a push from a user.
-          token: ${{ secrets.DOWNSTREAM_RELEASE_PUSH_TOKEN }}
+          token: ${{ secrets.CLOUDSMITH_BOT_TOKEN }}
 
       - name: Push the tag and create the GitHub release
         env:
