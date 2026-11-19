@@ -11,59 +11,71 @@ filters: &filters
   tags:
     only: /.*/
 
+executors:
+  base:
+    docker:
+      - image: cimg/base:2026.11
+    resource_class: arm.medium.gen2
+  python:
+    docker:
+      - image: cimg/python:3.11.18
+    resource_class: arm.medium.gen2
+  circleci-cli:
+    docker:
+      - image: circleci/circleci-cli:1.5.0
+    resource_class: arm.medium.gen2
+
 jobs:
   # The installer in src/scripts/install.sh is vendored from
   # https://github.com/cloudsmith-io/cloudsmith-cli-install-script and must
   # only change together with src/scripts/install.sh.version.
   installer-drift-check:
-    docker:
-      - image: cimg/base:current
+    executor: base
     steps:
       - checkout
       - run:
           name: Verify vendored installer matches the recorded checksum
-          command: |
-            expected="$(awk -F= '$1 == "sha256" {print $2}' src/scripts/install.sh.version)"
-            actual="$(sha256sum src/scripts/install.sh | awk '{print $1}')"
-            if [ "$expected" != "$actual" ]; then
-              echo "src/scripts/install.sh does not match src/scripts/install.sh.version" >&2
-              echo "expected sha256: $expected" >&2
-              echo "actual sha256:   $actual" >&2
-              echo "Update both files together when vendoring a new installer release." >&2
-              exit 1
-            fi
-            version="$(awk -F= '$1 == "version" {print $2}' src/scripts/install.sh.version)"
-            echo "Vendored installer (version: $version) matches the recorded checksum."
+          command: scripts/check-vendored-installer.sh
 
   bump-cli-version-test:
-    docker:
-      - image: cimg/base:current
+    executor: base
     steps:
       - checkout
       - run:
           name: Test the CLI version bump script
           command: bash scripts/test-bump-cli-version.sh
 
+  # The shellcheck/check job accepts only x86 resource classes.
+  shellcheck-scripts:
+    executor: base
+    steps:
+      - checkout
+      - shellcheck/check
+
 workflows:
   lint-pack:
     jobs:
       - orb-tools/lint:
+          executor: python
           filters: *filters
       - orb-tools/pack:
+          executor: circleci-cli
           filters: *filters
       - orb-tools/review:
+          executor: python
           orb_name: cloudsmith
           # RC009: inline commands are used for trivial steps intentionally
           # RC010: parameters use kebab-case by convention
           exclude: RC009,RC010
           filters: *filters
-      - shellcheck/check:
+      - shellcheck-scripts:
           filters: *filters
       - installer-drift-check:
           filters: *filters
       - bump-cli-version-test:
           filters: *filters
       - orb-tools/continue:
+          executor: circleci-cli
           pipeline_number: << pipeline.number >>
           vcs_type: << pipeline.project.type >>
           orb_name: cloudsmith
@@ -71,7 +83,7 @@ workflows:
             - orb-tools/lint
             - orb-tools/pack
             - orb-tools/review
-            - shellcheck/check
+            - shellcheck-scripts
             - installer-drift-check
             - bump-cli-version-test
           filters: *filters

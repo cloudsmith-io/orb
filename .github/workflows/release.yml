@@ -36,22 +36,4 @@ jobs:
       - name: Push the tag and create the GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: |
-          set -euo pipefail
-          version="$(sed -n 's/^## \[\([0-9]*\.[0-9]*\.[0-9]*\)\].*/\1/p' CHANGELOG.md | head -n 1)"
-          test -n "$version"
-          tag="v$version"
-          status=0
-          git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null || status=$?
-          # CircleCI starts tag pipelines from push webhooks, so push the tag
-          # with git instead of creating it through the release API.
-          case "$status" in
-            0) echo "$tag already exists" ;;
-            2)
-              git tag "$tag" "$GITHUB_SHA"
-              git push origin "refs/tags/$tag"
-              ;;
-            *) exit "$status" ;;
-          esac
-          gh release view "$tag" > /dev/null 2>&1 \
-            || gh release create "$tag" --verify-tag --title "$tag" --generate-notes
+        run: scripts/release.sh

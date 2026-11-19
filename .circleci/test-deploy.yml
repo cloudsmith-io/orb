@@ -31,13 +31,20 @@ release-filters: &release-filters
 executors:
   linux-docker:
     docker:
-      - image: cimg/base:current
+      - image: cimg/base:2026.11
+    resource_class: arm.medium.gen2
   alpine-docker:
     docker:
-      - image: alpine:3.21
+      - image: alpine:3.21.10
+    resource_class: arm.medium.gen2
   linux-machine:
     machine:
-      image: ubuntu-2404:current
+      image: ubuntu-2404:2026.11.1
+    resource_class: arm.medium.gen2
+  circleci-cli:
+    docker:
+      - image: circleci/circleci-cli:1.5.0
+    resource_class: arm.medium.gen2
   macos:
     macos:
       xcode: "16.2"
@@ -79,13 +86,10 @@ jobs:
   api-key-test:
     executor: linux-docker
     steps:
+      - checkout
       - run:
           name: Skip unless CLOUDSMITH_API_KEY is available
-          command: |
-            if [ -z "${CLOUDSMITH_API_KEY:-}" ]; then
-              echo "CLOUDSMITH_API_KEY is not set; skipping the API key test."
-              circleci-agent step halt
-            fi
+          command: scripts/skip-without-api-key.sh
       - cloudsmith/ensure-api-key
       - cloudsmith/install-cli
       - run:
@@ -95,21 +99,13 @@ jobs:
   oidc-test:
     executor: linux-docker
     steps:
+      - checkout
       - run:
           name: Skip unless OIDC testing is enabled
-          command: |
-            if [ "${CLOUDSMITH_OIDC_TEST:-}" != "true" ]; then
-              echo "CLOUDSMITH_OIDC_TEST is not 'true'; skipping the OIDC test."
-              circleci-agent step halt
-            fi
-            if [ -z "<< pipeline.parameters.test-organization >>" ] || [ -z "<< pipeline.parameters.test-service-account >>" ]; then
-              echo "test-organization/test-service-account pipeline parameters are not set; skipping the OIDC test."
-              circleci-agent step halt
-            fi
-            if [ -z "${CIRCLE_OIDC_TOKEN_V2:-}" ] && [ -z "${CIRCLE_OIDC_TOKEN:-}" ]; then
-              echo "No OIDC token; the job must use a context. Skipping the OIDC test."
-              circleci-agent step halt
-            fi
+          environment:
+            TEST_ORGANIZATION: << pipeline.parameters.test-organization >>
+            TEST_SERVICE_ACCOUNT: << pipeline.parameters.test-service-account >>
+          command: scripts/skip-without-oidc.sh
       - cloudsmith/install-cli
       - cloudsmith/configure-oidc:
           organization: << pipeline.parameters.test-organization >>
@@ -136,11 +132,13 @@ workflows:
           context: orb-publishing
           filters: *filters
       - orb-tools/pack:
+          executor: circleci-cli
           filters: *filters
       # Publish a dev version on every push (except forked PRs and release tags)
       - orb-tools/publish:
           name: publish-dev
           orb_name: cloudsmith/cloudsmith
+          executor: circleci-cli
           vcs_type: << pipeline.project.type >>
           pub_type: dev
           context: orb-publishing
@@ -157,6 +155,7 @@ workflows:
       - orb-tools/publish:
           name: publish-production
           orb_name: cloudsmith/cloudsmith
+          executor: circleci-cli
           vcs_type: << pipeline.project.type >>
           pub_type: production
           context: orb-publishing
