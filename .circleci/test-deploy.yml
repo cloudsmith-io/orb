@@ -37,9 +37,10 @@ executors:
     docker:
       - image: alpine:3.21.10
     resource_class: arm.medium.gen2
+  # Arm gen2 machines run only the current and edge tags of ubuntu-2404.
   linux-machine:
     machine:
-      image: ubuntu-2404:2026.11.1
+      image: ubuntu-2404:current
     resource_class: arm.medium.gen2
   circleci-cli:
     docker:
