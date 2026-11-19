@@ -8,10 +8,11 @@ description: >
 parameters:
   cli-version:
     type: string
-    default: "latest"
+    default: "1.31.3"
     description: >
       Exact Cloudsmith CLI version to install (e.g. "1.20.0"), or "latest"
-      for the newest release.
+      for the newest release. The default is a pinned version that the
+      maintainers move to each new CLI release in the same major version.
   install-path:
     type: string
     default: ""

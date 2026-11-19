@@ -1,0 +1,39 @@
+name: Release
+
+# Tags and releases the newest version in CHANGELOG.md when it has no tag
+# or no GitHub release yet.
+# CircleCI receives the tag push and publishes that version of the orb.
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - CHANGELOG.md
+  workflow_dispatch: {}
+
+permissions: {}
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  release:
+    name: Tag the newest CHANGELOG version
+    if: github.ref == 'refs/heads/master'
+    permissions:
+      contents: write # create the GitHub release
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # CircleCI must see the tag push as a push from a user.
+          token: ${{ secrets.CLOUDSMITH_BOT_TOKEN }}
+
+      - name: Push the tag and create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: scripts/release.sh
